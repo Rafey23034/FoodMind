@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AppButton from '../components/AppButton';
-import AppText from '../components/AppText';
-import { COLORS } from '../theme/colors';
-import { SPACING, RADIUS } from '../theme/spacing';
+import AppButton from '../../components/AppButton';
+import AppText from '../../components/AppText';
+import { COLORS } from '../../theme/colors';
+import { SPACING, RADIUS } from '../../theme/spacing';
 
 // This is the welcome screen in the first FoodMind Figma frame.
 // The parent decides what happens when the user presses either button.

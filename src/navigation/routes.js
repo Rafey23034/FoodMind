@@ -1,0 +1,16 @@
+export const routes = {
+  SPLASH: 'Splash',
+  LOGIN: 'Login',
+  REGISTER: 'Register',
+  MAIN_TABS: 'MainTabs',
+  HOME: 'Home',
+  SEARCH: 'Search',
+  ORDERS: 'Orders',
+  PROFILE: 'Profile',
+  RESTAURANT_DETAIL: 'RestaurantDetail',
+  DISH_DETAIL: 'DishDetail',
+  CART: 'Cart',
+  CHECKOUT: 'Checkout',
+  DASHBOARD: 'Dashboard',
+  MANAGE_MENU: 'ManageMenu',
+};

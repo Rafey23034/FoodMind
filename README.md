@@ -1,97 +1,178 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# FoodMind
 
-# Getting Started
+A React Native food-delivery app with item-level food discovery. This repository holds **Part 1**: the complete mobile experience in plain JavaScript, with mock restaurant data, Redux Toolkit for shared state, and a local login stored in AsyncStorage.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+**Team:** Syed Hashim Abbas, Janasheen Haider, Muhammad Rafey Tanweer
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Getting Started
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+> Complete the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide first.
+
+### 1. Install dependencies
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+npm install
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+If you are setting up a fresh project, these are the packages the app uses:
 
 ```sh
-# Using npm
+npm i @react-navigation/native @react-navigation/native-stack @react-navigation/bottom-tabs
+npm i react-native-screens react-native-safe-area-context
+npm i @reduxjs/toolkit react-redux @react-native-async-storage/async-storage
+```
+
+### 2. Start Metro
+
+From the project root:
+
+```sh
+npx react-native start
+```
+
+### 3. Run the app
+
+In a second terminal, from the project root:
+
+```sh
+# Android
 npm run android
 
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
+# iOS (first time, or after changing native dependencies)
 bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
 bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Saving a file reloads the app automatically (Fast Refresh). To force a full reload, press **R** twice on Android, or **R** in the iOS Simulator.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+Having trouble? See the [React Native troubleshooting page](https://reactnative.dev/docs/troubleshooting).
 
-## Step 3: Modify your app
+### Demo accounts
 
-Now that you have successfully run the app, let's make changes!
+| Role | Email | Password |
+|---|---|---|
+| Customer | `demo@foodmind.app` | `demo123` |
+| Restaurant owner | `owner@foodmind.app` | `owner123` |
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+These are created on first launch. Registering a new account always creates a customer.
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+---
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## Project Structure
 
-## Congratulations! :tada:
+Everything we write lives in `src/`. `App.js` stays at the project root.
 
-You've successfully run and modified your React Native App. :partying_face:
+```
+src/
+├── components/    Shared UI pieces (Button, Card, RatingBadge)
+├── screens/       Screens, grouped by role
+│   ├── auth/        Splash, Login, Register
+│   ├── customer/    Home, Search, Orders, Profile, Restaurant, Dish, Cart, Checkout
+│   └── restaurant/  Dashboard, Manage Menu
+├── navigation/    Navigators and route names
+├── theme/         Colors, spacing, font sizes
+├── data/          Mock restaurants, menu items, orders
+├── state/         Redux Toolkit store, slices, and hooks
+├── auth/          Register, login, logout, restore session (logic only)
+└── utils/         Helpers: price formatting, validation, search matching
+```
 
-### Now what?
+| Folder | What belongs there |
+|---|---|
+| `components` | Any UI piece used by more than one screen. Props in, UI out |
+| `screens/<role>` | One flat file per screen, named `<Name>Screen.js`, plus that role's `index.js` |
+| `navigation` | The only place that knows the app flow. Route names live here |
+| `theme` | The only place for colors, spacing and font sizes |
+| `data` | What the app *knows* (menu, restaurants, orders) |
+| `state` | What the user is *doing* (cart, who is logged in) |
+| `auth` | The logic for registering and logging in. No UI |
+| `utils` | Small pure functions with no UI |
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+### App flow
 
-# Troubleshooting
+The session decides which group of screens is shown:
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+- **Logged out:** Splash, Login, Register
+- **Customer:** four tabs (Home, Search, Orders, Profile), plus Restaurant Detail, Dish Detail, Cart, Checkout
+- **Restaurant owner:** Dashboard, Manage Menu
 
-# Learn More
+### Who may import whom
 
-To learn more about React Native, take a look at the following resources:
+| Layer | May use | Must not use |
+|---|---|---|
+| `screens` | components, theme, utils, data, route names, and the hooks in `state/hooks.js` | `auth` or Redux directly, or another role's screens |
+| `navigation` | `state/hooks.js` (to read the role), screens | `auth` directly |
+| `state` | `auth`, data, utils | screens |
+| `auth` | utils, AsyncStorage | screens, `state` |
+| `components` | theme, utils | `state`, data, screens |
+| `data`, `theme`, `utils` | nothing from the app | everything else |
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+### State and login
+
+Redux Toolkit holds state that several screens share:
+
+- **Session slice:** the current user, role, and loading status
+- **Cart slice:** the items in the cart (in memory only)
+
+Screens never import Redux. They use two hooks from `state/hooks.js`: `useSession()` and `useCart()`. Form text, search text and selected chips stay in `useState` inside their screens.
+
+**Users live in AsyncStorage, not Redux.** `auth/` saves the user list and the current session there, so a login survives an app restart. Redux holds only a copy of the current user for screens to read.
+
+How a login travels:
+
+1. The Login screen validates the input and calls `login` from `useSession()`.
+2. The session slice runs an async action that calls `auth.login`.
+3. `auth` checks the saved users and saves the session in AsyncStorage.
+4. The slice stores the user and role.
+5. The root navigator sees the new role and switches to the right group.
+
+On app start, the session asks `auth` to restore the saved session, and a Splash screen shows until it answers.
+
+> Passwords are stored as plain text because this is a Part 1 demo. Part 2's backend must hash them.
+
+---
+
+## Conventions
+
+- **One flat file per screen,** named `<Name>Screen.js`, inside its role folder.
+- **Role folders do not import each other.** If two roles need the same piece, move it to `components`.
+- **Reusable means `components`.** A piece used by two or more screens goes there.
+- **One source for style.** Take colors and spacing from `theme`. No hard-coded values in screens.
+- **One source for routes.** Take route names from `navigation/routes.js`. Never type them by hand.
+- **Data comes from `data` only.** Do not copy mock values into screens.
+- **Money:** prices are whole numbers in Rs., formatted only when displayed.
+- **IDs** are strings.
+- **Keep it simple.** If a feature is not in the proposal, leave it out.
+
+## Adding a Screen
+
+1. Create `screens/<role>/<Name>Screen.js` (role is `auth`, `customer` or `restaurant`).
+2. In that role folder's `index.js`, replace the placeholder line with your real export.
+3. Make sure the route name exists in `navigation/routes.js` and is registered in the matching navigator.
+4. Run the app and walk to your screen.
+
+Screens that are not built yet show a placeholder reading "<Name> Screen", so the full flow can be tapped through at any time.
+
+## Git Workflow
+
+- Work on your own branch, named `feature/<name>-<task>`.
+- Edit only your own screen files. Before changing shared files (`theme`, `navigation`, `components`, `state`, `auth`), tell the team.
+- Pull `main` before you start and before you open a merge request.
+- Do not commit secrets or keys.
+
+---
+
+## Scope
+
+**Part 1 (this repo):** browsing, search and filters, restaurant and dish details, cart, checkout (simulated), orders (local), login and session, restaurant dashboard and menu management (local).
+
+**Part 2 (later):** a real backend, persistent data, reviews, and AI-assisted food search.
+
+## Learn More
+
+- [React Native documentation](https://reactnative.dev/docs/getting-started)
+- [React Navigation](https://reactnavigation.org)
+- [Redux Toolkit](https://redux-toolkit.js.org)

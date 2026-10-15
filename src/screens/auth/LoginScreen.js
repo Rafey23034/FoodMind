@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AppButton from '../components/AppButton';
-import AppInput from '../components/AppInput';
-import AppText from '../components/AppText';
-import { COLORS } from '../theme/colors';
-import { SPACING, RADIUS } from '../theme/spacing';
+import AppButton from '../../components/AppButton';
+import AppInput from '../../components/AppInput';
+import AppText from '../../components/AppText';
+import { COLORS } from '../../theme/colors';
+import { SPACING, RADIUS } from '../../theme/spacing';
 
 export default function LoginScreen({ navigation, route, onLogin }) {
   const [email, setEmail] = useState('');

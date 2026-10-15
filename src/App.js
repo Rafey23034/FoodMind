@@ -4,11 +4,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { AuthProvider, useAuth } from './context/AuthContext';
-import SplashScreen from './screens/SplashScreen';
-import LoginScreen from './screens/LoginScreen';
-import RegisterScreen from './screens/RegisterScreen';
-import HomeScreen from './screens/HomeScreen';
+import { AuthProvider, useAuth } from './state/AuthContext';
+import SplashScreen from './screens/auth/SplashScreen';
+import LoginScreen from './screens/auth/LoginScreen';
+import RegisterScreen from './screens/auth/RegisterScreen';
+import HomeScreen from './screens/customer/HomeScreen';
 import { COLORS } from './theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -50,6 +50,7 @@ export default function App() {
       <AuthProvider>
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
         <AppNavigator />
+        {/* Root Navigator to be used  */}
       </AuthProvider>
     </SafeAreaProvider>
   );
