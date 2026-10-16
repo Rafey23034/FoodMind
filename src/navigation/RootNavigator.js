@@ -1,18 +1,10 @@
 import React from 'react';
-import { useSession } from '../state/hooks';
-import { SplashScreen } from '../screens/auth';
+import { useAuth } from '../state/AuthContext';
 import AuthStack from './AuthStack';
-import CustomerNavigator from './CustomerNavigator';
-import RestaurantStack from './RestaurantStack';
-
-const DEV_ROLE_OVERRIDE = null;
+import CustomerStack from './CustomerStack';
 
 export default function RootNavigator() {
-  const { role, loading } = useSession();
-  const activeRole = DEV_ROLE_OVERRIDE || role;
+  const { user } = useAuth();
 
-  if (loading) return <SplashScreen />;
-  if (activeRole === 'customer') return <CustomerNavigator />;
-  if (activeRole === 'restaurant') return <RestaurantStack />;
-  return <AuthStack />;
+  return user ? <CustomerStack /> : <AuthStack />;
 }

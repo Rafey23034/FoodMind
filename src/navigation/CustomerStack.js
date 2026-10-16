@@ -1,42 +1,61 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import { routes } from './routes';
-import { colors } from '../theme';
-import * as S from '../screens/customer';
-import { makePlaceholder } from '../screens/placeholder';
+import AppText from '../components/AppText';
+import { useAuth } from '../state/AuthContext';
+import HomeScreen from '../screens/customer/HomeScreen';
+import CartScreen from '../screens/customer/CartScreen';
+import CheckoutScreen from '../screens/customer/CheckoutScreen';
+import OrdersScreen from '../screens/customer/OrdersScreen';
+import { COLORS } from '../theme/colors';
+import { SPACING } from '../theme/spacing';
 
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
 
-function MainTabs() {
-    return (
-        <Tab.Navigator
-            screenOptions={({ route }) => ({
-                headerShown: false,
-                // tabBarActiveTintColor: 
-                // tabBarIcon: 
-            })}
-        >
-            <Tab.Screen name={routes.HOME} component={S.HomeScreen} />
-            {/* placeholders to be replaced later */}
-            <Tab.Screen name={routes.SEARCH} component={makePlaceholder('Search')} />
-            <Tab.Screen name={routes.ORDERS} component={makePlaceholder('Orders')} />
-            <Tab.Screen name={routes.PROFILE} component={makePlaceholder('Profile')} />
-        </Tab.Navigator>
-    )
+function HomeActions() {
+  const navigation = useNavigation();
+  const { logout } = useAuth();
+
+  return (
+    <View style={styles.actions}>
+      <Pressable accessibilityRole="button" style={styles.action}
+        onPress={() => navigation.navigate(routes.CART)}>
+        <AppText variant="small" color={COLORS.primary}>Cart</AppText>
+      </Pressable>
+      <Pressable accessibilityRole="button" style={styles.action}
+        onPress={() => navigation.navigate(routes.ORDERS)}>
+        <AppText variant="small" color={COLORS.primary}>Orders</AppText>
+      </Pressable>
+      <Pressable accessibilityRole="button" style={styles.action} onPress={logout}>
+        <AppText variant="small" color={COLORS.primary}>Sign out</AppText>
+      </Pressable>
+    </View>
+  );
 }
 
-export default function CustomerNavigation() {
-    return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name={routes.MAIN_TABS} component={MainTabs} />
-            {/* placeholders to be replaced later */}
-            <Stack.Screen name={routes.RESTAURANT_DETAIL} component={makePlaceholder('Restraunt Detail')} />
-            <Stack.Screen name={routes.DISH_DETAIL} component={makePlaceholder('Dish Detail')} />
-            <Stack.Screen name={routes.CART} component={makePlaceholder('Cart')} />
-            <Stack.Screen name={routes.CHECKOUT} component={makePlaceholder('Checkout')} />
-        </Stack.Navigator>
-    )
+const homeOptions = {
+  headerShown: true,
+  title: 'FoodMind',
+  headerStyle: { backgroundColor: COLORS.background },
+  headerTintColor: COLORS.text,
+  headerRight: () => <HomeActions />,
+};
+
+export default function CustomerStack() {
+  return (
+    <Stack.Navigator initialRouteName={routes.HOME} screenOptions={{ headerShown: false }}>
+      <Stack.Screen name={routes.HOME} component={HomeScreen}
+        options={homeOptions} />
+      <Stack.Screen name={routes.CART} component={CartScreen} />
+      <Stack.Screen name={routes.CHECKOUT} component={CheckoutScreen} />
+      <Stack.Screen name={routes.ORDERS} component={OrdersScreen} />
+    </Stack.Navigator>
+  );
 }
+
+const styles = StyleSheet.create({
+  actions: { flexDirection: 'row', gap: SPACING.md },
+  action: { paddingVertical: SPACING.sm },
+});

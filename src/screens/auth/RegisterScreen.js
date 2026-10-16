@@ -6,6 +6,7 @@ import AppInput from '../../components/AppInput';
 import AppText from '../../components/AppText';
 import { COLORS } from '../../theme/colors';
 import { SPACING, RADIUS } from '../../theme/spacing';
+import { routes } from '../../navigation/routes';
 
 export default function RegisterScreen({ navigation, onRegister }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -30,7 +31,7 @@ export default function RegisterScreen({ navigation, onRegister }) {
       password: form.password,
     });
 
-    navigation.navigate('Login', { registered: true });
+    navigation.popTo(routes.LOGIN, { registered: true });
   }
 
   return (
@@ -126,7 +127,7 @@ export default function RegisterScreen({ navigation, onRegister }) {
           <AppText variant="small" color={COLORS.textSecondary}>
             Already have an account?{' '}
           </AppText>
-          <Pressable onPress={() => navigation.navigate('Login')}>
+          <Pressable onPress={() => navigation.popTo(routes.LOGIN)}>
             <AppText variant="small" color={COLORS.primary} style={styles.footerLink}>
               Sign in
             </AppText>

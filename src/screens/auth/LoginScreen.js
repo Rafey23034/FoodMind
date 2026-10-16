@@ -6,6 +6,7 @@ import AppInput from '../../components/AppInput';
 import AppText from '../../components/AppText';
 import { COLORS } from '../../theme/colors';
 import { SPACING, RADIUS } from '../../theme/spacing';
+import { routes } from '../../navigation/routes';
 
 export default function LoginScreen({ navigation, route, onLogin }) {
   const [email, setEmail] = useState('');
@@ -125,13 +126,13 @@ export default function LoginScreen({ navigation, route, onLogin }) {
           </View>
 
           <AppText variant="caption" color={COLORS.textSecondary} style={styles.demoHint}>
-            Demo login: demo@foodmind.com / 123456
+            Demo login: demo@food.com / 123456
           </AppText>
         </View>
 
         <View style={styles.footer}>
           <AppText variant="small" color={COLORS.textSecondary}>New to FoodMind? </AppText>
-          <Pressable onPress={() => navigation.navigate('Register')}>
+          <Pressable onPress={() => navigation.navigate(routes.REGISTER)}>
             <AppText variant="small" color={COLORS.primary} style={styles.footerLink}>
               Create account
             </AppText>
