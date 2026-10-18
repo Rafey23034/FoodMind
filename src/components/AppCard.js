@@ -5,7 +5,7 @@ import { RADIUS, SPACING } from '../theme/spacing';
 
 export default function AppCard({ children, style, testID }) {
   return (
-    <View testID={testID} style={[styles.card, style]}>
+    <View style={[styles.card, style]}>
       {children}
     </View>
   );

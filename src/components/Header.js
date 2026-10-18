@@ -11,8 +11,6 @@ export default function Header({ title, onBack, centerTitle = false, right }) {
                 {onBack ? (
                     <Pressable
                         onPress={onBack}
-                        accessibilityRole="button"
-                        accessibilityLabel="Go back"
                         style={({ pressed }) => [
                             header.backButton,
                             pressed && header.backButtonPressed,
@@ -24,7 +22,6 @@ export default function Header({ title, onBack, centerTitle = false, right }) {
             </View>
 
             <Text
-                accessibilityRole="header"
                 style={[header.title, centerTitle && header.titleCenter]}
             >
                 {title}

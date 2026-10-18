@@ -8,7 +8,7 @@ import { TYPOGRAPHY } from '../theme/typography';
 export default function AppInput({
   label,
   value,
-  onChangeText,
+  onValueChange,
   placeholder,
   error,
   secureTextEntry = false,
@@ -21,7 +21,7 @@ export default function AppInput({
       {label ? <AppText variant="small" style={styles.label}>{label}</AppText> : null}
       <TextInput
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={onValueChange}
         placeholder={placeholder}
         placeholderTextColor={COLORS.textSecondary}
         secureTextEntry={secureTextEntry}
