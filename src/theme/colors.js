@@ -12,8 +12,10 @@ export const COLORS = {
   border: '#ECE7E2',
 
   success: '#239B66',
+  successLight: '#E7F6EE',
   danger: '#D64747',
   warning: '#F2A53B',
+  warningLight: '#FEF3C7',
 
   white: '#FFFFFF',
   disabled: '#C9C3BE',
