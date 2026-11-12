@@ -3,12 +3,14 @@ import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppButton from '../../components/AppButton';
 import AppText from '../../components/AppText';
+import Icon from '../../components/Icon';
 import { COLORS } from '../../theme/colors';
 import { SPACING, RADIUS } from '../../theme/spacing';
+import { TYPOGRAPHY } from '../../theme/typography';
 
 // This is the welcome screen in the first FoodMind Figma frame.
 // The parent decides what happens when the user presses either button.
-export default function SplashScreen({ onGetStarted, onSignIn }) {
+export default function SplashScreen({ onGetStarted, onSignIn, onPartnerRegister, onRiderRegister }) {
   const fade = useRef(new Animated.Value(0)).current;
   const move = useRef(new Animated.Value(20)).current;
 
@@ -47,20 +49,20 @@ export default function SplashScreen({ onGetStarted, onSignIn }) {
         >
           <View style={styles.logoStage}>
             <View style={styles.logoBox}>
-              <AppText style={styles.utensils}>🍴</AppText>
+              <Icon name="utensils" size={40} color={COLORS.white} style={styles.utensils} />
               <AppText style={styles.logoLabel} color={COLORS.white}>
                 FOODMIND
               </AppText>
             </View>
 
             <View style={[styles.pill, styles.pillTop]}>
-              <AppText variant="caption">✨ AI Matchmaking</AppText>
+              <Icon name="ai" size={11} /><AppText variant="caption" style={styles.pillText}>AI Matchmaking</AppText>
             </View>
             <View style={[styles.pill, styles.pillLeft]}>
-              <AppText variant="caption">🌿 Curated For You</AppText>
+              <Icon name="star" size={11} /><AppText variant="caption" style={styles.pillText}>Curated For You</AppText>
             </View>
             <View style={[styles.pill, styles.pillRight]}>
-              <AppText variant="caption">📍 Food Delivery</AppText>
+              <Icon name="location" size={11} /><AppText variant="caption" style={styles.pillText}>Food Delivery</AppText>
             </View>
           </View>
 
@@ -81,8 +83,7 @@ export default function SplashScreen({ onGetStarted, onSignIn }) {
             color={COLORS.textSecondary}
             style={styles.tagline}
           >
-            Culinary intelligence for your every craving.{'\n'}
-            Find food you'll truly love.
+            Culinary intelligence for your every craving. Find food you'll truly love.
           </AppText>
         </Animated.View>
 
@@ -98,10 +99,21 @@ export default function SplashScreen({ onGetStarted, onSignIn }) {
             <AppText variant="small" color={COLORS.textSecondary}>
               Already have an account?{' '}
             </AppText>
-            <Pressable onPress={onSignIn} testID="sign-in-link">
+            <Pressable onPress={onSignIn} testID="sign-in-link" accessibilityRole="button" hitSlop={8}>
               <AppText variant="small" style={styles.signInText}>
                 Sign in
               </AppText>
+            </Pressable>
+          </View>
+
+          {/* Partners create their account here, then use the same Sign In page. */}
+          <View style={styles.partnerRow}>
+            <Pressable onPress={onPartnerRegister} testID="partner-register-link" accessibilityRole="button" hitSlop={8}>
+              <AppText variant="small" color={COLORS.primary} style={styles.signInText}>Become a Partner</AppText>
+            </Pressable>
+            <AppText variant="small" color={COLORS.textSecondary}>·</AppText>
+            <Pressable onPress={onRiderRegister} testID="rider-register-link" accessibilityRole="button" hitSlop={8}>
+              <AppText variant="small" color={COLORS.primary} style={styles.signInText}>Become a Rider</AppText>
             </Pressable>
           </View>
 
@@ -119,6 +131,8 @@ export default function SplashScreen({ onGetStarted, onSignIn }) {
 }
 
 const styles = StyleSheet.create({
+  partnerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.lg },
+  pillText: { fontWeight: '600' },
   screen: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -156,7 +170,6 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
   },
   utensils: {
-    fontSize: 42,
     marginBottom: SPACING.xs,
   },
   logoLabel: {
@@ -166,6 +179,9 @@ const styles = StyleSheet.create({
   },
   pill: {
     position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.md,
@@ -173,7 +189,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     elevation: 4,
-    shadowColor: '#000000',
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 6,
@@ -197,14 +213,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandName: {
-    fontSize: 36,
-    lineHeight: 44,
-    fontWeight: '700',
+    ...TYPOGRAPHY.display,
   },
   tagline: {
     textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 22,
+    maxWidth: 300,
     marginTop: SPACING.md,
   },
   actions: {

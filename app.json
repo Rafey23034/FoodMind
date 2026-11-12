@@ -1,4 +1,14 @@
 {
-  "name": "FoodMind",
-  "displayName": "FoodMind"
+  "expo": {
+    "name": "FoodMind",
+    "slug": "foodmind",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["./plugins/withWindowsCMake", ["expo-image-picker", { "cameraPermission": false, "microphonePermission": false }]],
+    "android": {
+      "package": "com.foodmind.app"
+    },
+    "web": { "bundler": "metro" }
+  }
 }

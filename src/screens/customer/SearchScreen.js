@@ -1,235 +1,108 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, Pressable, Image, StyleSheet, ScrollView, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Pressable, StyleSheet, ScrollView, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector } from 'react-redux';
 import Header from '../../components/Header';
 import SearchBar from '../../components/SearchBar';
-import FilterIcon from '../../assets/icons/filter-slider-icon.svg';
-import { SEARCH_DISHES } from '../../data/searchDishes';
+import AppText from '../../components/AppText';
+import AppButton from '../../components/AppButton';
+import Icon from '../../components/Icon';
+import StarIcon from '../../components/icons/StarIcon';
+import FoodThumbnail from '../../components/FoodThumbnail';
+import { restaurant, formatPrice, ratingLabel } from '../../data/catalog';
+import { searchDishes } from '../../data/discovery';
+import { selectAvailableItems } from '../../redux/menuSlice';
+import { routes } from '../../navigation/routes';
+import { plural } from '../../utils/format';
+import { NoMatchContent } from './NoMatchScreen';
 import { COLORS } from '../../theme/colors';
-
+import { RADIUS } from '../../theme/spacing';
 
 const TABS = ['All', 'Dishes', 'Restaurants', '4.5+'];
 
-export default function SearchScreen() {
-    const [activeTab, setActiveTab] = useState('All');
-    const [query, setQuery] = useState('');
+export default function SearchScreen({ navigation, route }) {
+  const [activeTab, setActiveTab] = useState('All');
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    if (route?.params?.reset) { setQuery(''); setActiveTab('All'); }
+  }, [route?.params?.reset]);
 
-    const filteredData = useMemo(() => {
-        let data = SEARCH_DISHES;
+  const menuItems = useSelector(selectAvailableItems);
+  const term = query.trim().toLowerCase();
+  const filteredData = [];
+  if (activeTab === 'All' || activeTab === 'Restaurants') {
+    const description = `${restaurant.name} ${restaurant.cuisine}`.toLowerCase();
+    if (!term || description.includes(term)) filteredData.push({ ...restaurant, type: 'Restaurants' });
+  }
+  if (activeTab !== 'Restaurants') {
+    for (const dish of searchDishes(menuItems, term)) {
+      if (activeTab === '4.5+' && dish.rating < 4.5) continue;
+      filteredData.push({ ...dish, type: 'Dishes' });
+    }
+  }
 
-        if (activeTab === '4.5+') {
-            data = data.filter(item => item.rating >= 4.5);
-        } else if (activeTab === 'Dishes') {
-            data = data.filter(item => item.type === 'Dishes');
-        } else if (activeTab === 'Restaurants') {
-            data = [];
-        }
-
-        const q = query.trim().toLowerCase();
-        if (q) {
-            data = data.filter(
-                item =>
-                    item.name.toLowerCase().includes(q) ||
-                    item.restaurant.toLowerCase().includes(q) ||
-                    item.cuisine.toLowerCase().includes(q),
-            );
-        }
-
-        return data;
-    }, [activeTab, query]);
-
-    const renderDish = ({ item }) => (
-        <View style={styles.card}>
-            <Image source={item.image} style={styles.dishImage} />
-
-            <View style={styles.cardContent}>
-                <Text style={styles.title}>{item.name}</Text>
-                <Text style={styles.subtitle}>{item.restaurant} • {item.cuisine}</Text>
-
-                <View style={styles.metaRow}>
-                    <View style={styles.ratingRow}>
-                        <Text style={styles.star}>⭐</Text>
-                        <Text style={styles.rating}>{item.rating}</Text>
-                        <Text style={styles.reviews}>({item.reviews})</Text>
-                    </View>
-                    <Text style={styles.price}>Rs. {item.price.toLocaleString()}</Text>
-                </View>
-            </View>
+  const renderItem = ({ item }) => {
+    const isRestaurant = item.type === 'Restaurants';
+    return <Pressable style={styles.card} accessibilityRole="button" accessibilityLabel={`Open ${item.name}`}
+      onPress={() => navigation.navigate(isRestaurant ? routes.RESTAURANT_DETAIL : routes.DISH_DETAIL, isRestaurant ? { restaurantId: item.id } : { dishId: item.id })}>
+      <FoodThumbnail dishId={isRestaurant ? undefined : item.id} restaurantId={isRestaurant ? item.id : undefined} symbol={item.symbol} size={80} />
+      <View style={styles.cardContent}>
+        <AppText style={styles.bold}>{item.name}</AppText>
+        <AppText variant="small" color={COLORS.textSecondary}>{isRestaurant ? item.cuisine : `${restaurant.name} • ${item.category}`}</AppText>
+        <View style={styles.metaRow}>
+          <View style={styles.ratingRow}><StarIcon /><AppText variant="small" style={styles.bold}>{isRestaurant ? item.rating : ratingLabel(item)}</AppText></View>
+          <AppText color={COLORS.primary} style={styles.bold}>{isRestaurant ? item.time : formatPrice(item.price)}</AppText>
         </View>
-    );
+      </View>
+    </Pressable>;
+  };
 
-    const AIPromptCard = () => (
-        <View style={styles.aiCard}>
-            <View style={styles.aiHeader}>
-                <View style={styles.sparkleIcon}>
-                    <Text style={styles.sparkleText}>✦</Text>
-                </View>
-                <Text style={styles.aiTitle}>Try FoodMind AI</Text>
-            </View>
-
-            <Text style={styles.aiDescription}>
-                Looking for something specific?{'\n'}
-                Ask AI with natural language prompt.
-            </Text>
-
-            <Pressable
-                onPress={() => {}}
-                style={({ pressed }) => [styles.aiButton, pressed && styles.aiButtonPressed]}
-            >
-                <Text style={styles.aiButtonText}>Ask AI</Text>
-                <Text style={styles.aiButtonArrow}>→</Text>
-            </Pressable>
-        </View>
-    );
-
-    return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <Header onBack={() => null} title={'Search'} centerTitle={true} />
-
-            <SearchBar
-                placeholder={'Search Dishes, Restaurants or Cravings'}
-                rightIcon={<FilterIcon width={20} height={20} color={COLORS.primary} />}
-                value={query}
-                onChangeText={setQuery}
-            />
-
-            {/* Filter Tabs */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
-                {TABS.map((tab) => (
-                    <Pressable
-                        key={tab}
-                        style={[styles.tab, activeTab === tab && styles.activeTab]}
-                        onPress={() => setActiveTab(tab)}
-                    >
-                        <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                            {tab}
-                        </Text>
-                    </Pressable>
-                ))}
-            </ScrollView>
-
-            {/* Results Header */}
-            <View style={styles.resultsHeader}>
-                <Text style={styles.countText}>{filteredData.length} RESULTS FOUND</Text>
-            </View>
-
-            {/* The List */}
-            <FlatList
-                data={filteredData}
-                keyExtractor={(item) => item.id}
-                renderItem={renderDish}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyTitle}>No results</Text>
-                        <Text style={styles.emptySubtitle}>Try a different search or filter</Text>
-                    </View>
-                }
-                ListFooterComponent={AIPromptCard}
-            />
-        </SafeAreaView>
-    );
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <Header title="Search" centerTitle />
+      <SearchBar placeholder="Search dishes, restaurants or cravings" value={query} onChangeText={setQuery} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer} contentContainerStyle={styles.tabs}>
+        {TABS.map(tab => (
+          <Pressable key={tab} accessibilityRole="button" accessibilityState={{ selected: activeTab === tab }}
+            style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => setActiveTab(tab)}>
+            <AppText variant="small" color={activeTab === tab ? COLORS.white : COLORS.text} style={styles.medium}>{tab}</AppText>
+          </Pressable>
+        ))}
+      </ScrollView>
+      <AppText variant="caption" color={COLORS.textSecondary} style={styles.count}>{plural(filteredData.length, 'result').toUpperCase()}</AppText>
+      <FlatList
+        data={filteredData}
+        keyExtractor={item => `${item.type}-${item.id}`}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={<NoMatchContent query={query || activeTab} onReset={() => { setQuery(''); setActiveTab('All'); }}
+          onAskAI={() => navigation.navigate(routes.AI, { prompt: query })} />}
+        ListFooterComponent={filteredData.length ? <View style={styles.aiCard}>
+          <View style={styles.aiHeader}><Icon name="ai" size={18} /><AppText variant="subheading">Try FoodMind AI</AppText></View>
+          <AppText variant="small" color={COLORS.textSecondary}>Looking for something specific? Describe it in your own words.</AppText>
+          <AppButton title="Ask AI  →" onPress={() => navigation.navigate(routes.AI, { prompt: query })} style={styles.aiButton} />
+        </View> : null}
+      />
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
-
-    // Tabs
-    tabsContainer: { paddingHorizontal: 20, marginTop: 10, maxHeight: 40 },
-    tab: {
-        paddingHorizontal: 16, paddingVertical: 8, marginRight: 10,
-        borderRadius: 20, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border
-    },
-    activeTab: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-    tabText: { color: COLORS.text, fontWeight: '500' },
-    activeTabText: { color: COLORS.white },
-
-    // Results Header
-    resultsHeader: { paddingHorizontal: 20, marginTop: 15, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between' },
-    countText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '700' },
-
-    // List & Cards
-    listContent: { paddingHorizontal: 20, paddingBottom: 20 },
-    card: {
-        flexDirection: 'row',
-        backgroundColor: COLORS.white,
-        padding: 12,
-        borderRadius: 16,
-        marginBottom: 12,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
-    },
-    dishImage: {
-        width: 80, height: 80, borderRadius: 12, backgroundColor: COLORS.border,
-    },
-    cardContent: { flex: 1, marginLeft: 12, justifyContent: 'center' },
-    title: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
-    subtitle: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 },
-
-    metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    ratingRow: { flexDirection: 'row', alignItems: 'center' },
-    star: { fontSize: 12, marginRight: 4 },
-    rating: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginRight: 4 },
-    reviews: { fontSize: 12, color: COLORS.textSecondary },
-    price: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
-
-    // Empty State
-    emptyState: { alignItems: 'center', marginTop: 40 },
-    emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-    emptySubtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
-    aiCard: {
-        backgroundColor: '#FFF5F0',
-        borderRadius: 20,
-        padding: 20,
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: '#FFE8DD',
-    },
-    aiHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    sparkleIcon: {
-        marginRight: 8,
-    },
-    sparkleText: {
-        fontSize: 18,
-        color: COLORS.primary,
-    },
-    aiTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: COLORS.text,
-    },
-    aiDescription: {
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        lineHeight: 22,
-        marginBottom: 18,
-    },
-    aiButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: COLORS.primary,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 25,
-        alignSelf: 'flex-start',
-        gap: 8,
-    },
-    aiButtonPressed: {
-        backgroundColor: COLORS.primaryDark,
-        opacity: 0.9,
-    },
-    aiButtonText: {
-        color: COLORS.white,
-        fontSize: 15,
-        fontWeight: '600',
-    },
-    aiButtonArrow: {
-        color: COLORS.white,
-        fontSize: 16,
-        fontWeight: '600',
-    },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  bold: { fontWeight: '700' }, medium: { fontWeight: '600' },
+  tabsContainer: { marginTop: 12, flexGrow: 0, flexShrink: 0 },
+  tabs: { paddingHorizontal: 20, gap: 10 },
+  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: RADIUS.pill, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  activeTab: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  count: { paddingHorizontal: 20, marginTop: 15, marginBottom: 10, fontWeight: '700' },
+  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  card: { flexDirection: 'row', backgroundColor: COLORS.surface, padding: 12, borderRadius: RADIUS.lg, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  cardContent: { flex: 1, marginLeft: 12, justifyContent: 'center', gap: 4 },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aiCard: { backgroundColor: COLORS.primaryLight, borderRadius: RADIUS.lg, padding: 20, marginTop: 10, borderWidth: 1, borderColor: COLORS.primaryBorder, gap: 10 },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  aiButton: { alignSelf: 'flex-start', borderRadius: RADIUS.pill, minHeight: 44 },
 });

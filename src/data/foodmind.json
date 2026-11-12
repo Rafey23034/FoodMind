@@ -1,0 +1,222 @@
+{
+  "categories": [
+    "All",
+    "Burgers",
+    "Pizza",
+    "Desi",
+    "Pasta",
+    "Sides"
+  ],
+  "aiPreview": {
+    "prompt": "Creamy chicken pasta under Rs. 1,200",
+    "topDishId": "creamy-pasta",
+    "otherDishIds": [
+      "chicken-alfredo",
+      "white-sauce-pasta"
+    ],
+    "matchPercent": 98,
+    "reason": "Within budget • Creamy • Chicken • Highly rated"
+  },
+  "pricing": {
+    "extraChicken": 200,
+    "platformFee": 50
+  },
+  "restaurant": {
+    "id": "urban-bites",
+    "name": "Urban Bites",
+    "ownerEmail": "partner@food.com",
+    "cuisine": "Burgers • Pasta • Pizza • More",
+    "rating": 4.7,
+    "time": "25-35 min",
+    "deliveryFee": 150,
+    "description": "Burgers, pasta, pizza, crispy sides and more, all from Urban Bites.",
+    "symbol": "🍔",
+    "image": "Urban_Bites_Warm_Ambient_Interior.png",
+    "items": [
+      {
+        "id": "creamy-pasta",
+        "name": "Creamy Chicken Pasta",
+        "category": "Pasta",
+        "price": 1050,
+        "rating": 4.8,
+        "description": "Creamy fettuccine pasta with grilled chicken, parmesan, herbs and signature white sauce.",
+        "tags": [
+          "chicken",
+          "creamy",
+          "pasta",
+          "italian"
+        ],
+        "symbol": "🍝",
+        "recommended": true,
+        "image": "Creamy_Chicken_Pasta.png",
+        "featuredImage": "Creamy_Fettuccine_Alfredo_Pasta.png"
+      },
+      {
+        "id": "zinger-burger",
+        "name": "Zinger Burger",
+        "category": "Burgers",
+        "price": 790,
+        "rating": 4.7,
+        "description": "Crispy chicken fillet, lettuce and house sauce in a soft bun.",
+        "tags": [
+          "chicken",
+          "crispy",
+          "burger"
+        ],
+        "symbol": "🍔",
+        "recommended": true,
+        "image": "Fire_Burger.png"
+      },
+      {
+        "id": "classic-smash",
+        "name": "Classic Smash Burger",
+        "category": "Burgers",
+        "price": 890,
+        "rating": 4.7,
+        "description": "Beef patty, cheddar cheese, caramelized onion and special sauce.",
+        "tags": [
+          "beef",
+          "burger",
+          "cheese"
+        ],
+        "symbol": "🍔",
+        "recommended": true,
+        "image": "Classic_Smash_Burger.png",
+        "featuredImage": "Juicy_Smash_Double_Cheeseburger.png"
+      },
+      {
+        "id": "fire-burger",
+        "name": "Fire Burger",
+        "category": "Burgers",
+        "price": 820,
+        "rating": 4.6,
+        "description": "Spicy chicken burger served with a tangy chili sauce.",
+        "tags": [
+          "chicken",
+          "spicy",
+          "burger"
+        ],
+        "symbol": "🌶️",
+        "image": "Fire_Burger.png"
+      },
+      {
+        "id": "loaded-fries",
+        "name": "Loaded Fries",
+        "category": "Sides",
+        "price": 420,
+        "rating": 4.6,
+        "description": "Crispy fries topped with creamy cheese sauce.",
+        "tags": [
+          "fries",
+          "potato",
+          "cheese"
+        ],
+        "symbol": "🍟",
+        "image": "Loaded_Fries.png"
+      },
+      {
+        "id": "chicken-wrap",
+        "name": "Chicken Wrap",
+        "category": "Sides",
+        "price": 650,
+        "rating": 4.4,
+        "description": "Chicken, lettuce and garlic sauce in a soft tortilla.",
+        "tags": [
+          "chicken",
+          "wrap"
+        ],
+        "symbol": "🌯",
+        "image": "Chicken_Wrap.png"
+      },
+      {
+        "id": "chicken-alfredo",
+        "name": "Chicken Alfredo",
+        "category": "Pasta",
+        "price": 1100,
+        "rating": 4.6,
+        "description": "Alfredo pasta with chicken, cream and parmesan.",
+        "tags": [
+          "chicken",
+          "pasta",
+          "creamy",
+          "white sauce"
+        ],
+        "symbol": "🍝",
+        "image": "Creamy_Fettuccine_Alfredo_Pasta.png"
+      },
+      {
+        "id": "margherita-pizza",
+        "name": "Margherita Pizza",
+        "category": "Pizza",
+        "price": 1200,
+        "rating": 4.6,
+        "description": "Mozzarella, tomato sauce and fresh basil on a crisp crust.",
+        "tags": [
+          "pizza",
+          "cheese",
+          "vegetarian"
+        ],
+        "symbol": "🍕"
+      },
+      {
+        "id": "pepperoni-pizza",
+        "name": "Pepperoni Pizza",
+        "category": "Pizza",
+        "price": 1450,
+        "rating": 4.5,
+        "description": "Pepperoni slices and mozzarella with tomato sauce.",
+        "tags": [
+          "pizza",
+          "pepperoni",
+          "cheese"
+        ],
+        "symbol": "🍕",
+        "image": "Pepperoni_Pizza.png"
+      },
+      {
+        "id": "chicken-biryani",
+        "name": "Chicken Biryani",
+        "category": "Desi",
+        "price": 550,
+        "rating": 4.7,
+        "description": "Fragrant rice with spiced chicken and raita.",
+        "tags": [
+          "chicken",
+          "rice",
+          "spicy",
+          "desi"
+        ],
+        "symbol": "🍛"
+      },
+      {
+        "id": "chicken-karahi",
+        "name": "Chicken Karahi",
+        "category": "Desi",
+        "price": 1350,
+        "rating": 4.6,
+        "description": "Chicken cooked in tomato masala, ginger and green chili.",
+        "tags": [
+          "chicken",
+          "curry",
+          "desi"
+        ],
+        "symbol": "🍲"
+      },
+      {
+        "id": "white-sauce-pasta",
+        "name": "White Sauce Pasta",
+        "category": "Pasta",
+        "price": 950,
+        "rating": 4.5,
+        "description": "Rich white sauce pasta topped with herbs.",
+        "tags": [
+          "pasta",
+          "creamy",
+          "white sauce"
+        ],
+        "symbol": "🍝",
+        "image": "Creamy_Fettuccine_Alfredo_Pasta.png"
+      }
+    ]
+  }
+}

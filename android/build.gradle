@@ -1,21 +1,50 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
 buildscript {
-    ext {
-        buildToolsVersion = "37.0.0"
-        minSdkVersion = 24
-        compileSdkVersion = 37
-        targetSdkVersion = 36
-        ndkVersion = "27.1.12297006"
-        kotlinVersion = "2.2.0"
-    }
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle")
-        classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
-    }
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    def kotlinVersion = findProperty('android.kotlinVersion')
+    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')
+  }
 }
 
+allprojects {
+  repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+  }
+}
+
+
+
+
+
+
+// FoodMind: short native build paths on Windows
+if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+  def ninjaExecutable = new File(rootProject.projectDir, '../tmp/tools/ninja/ninja.exe').canonicalFile
+  if (!ninjaExecutable.exists()) {
+    throw new GradleException('Run npm run android:setup in the FoodMind folder to prepare the Windows build tool.')
+  }
+  subprojects { nativeProject ->
+    ['com.android.library', 'com.android.application'].each { pluginId ->
+      nativeProject.plugins.withId(pluginId) {
+        def androidConfig = nativeProject.extensions.getByName('android')
+        androidConfig.externalNativeBuild.cmake.buildStagingDirectory =
+          new File(rootProject.projectDir, "../tmp/cxx/${nativeProject.name}").canonicalFile
+        androidConfig.defaultConfig.externalNativeBuild.cmake.arguments.add('-DCMAKE_OBJECT_PATH_MAX=240')
+        androidConfig.defaultConfig.externalNativeBuild.cmake.arguments.add("-DCMAKE_MAKE_PROGRAM=${ninjaExecutable.absolutePath}".toString())
+      }
+    }
+  }
+}
+
+apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+

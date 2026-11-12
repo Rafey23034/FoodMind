@@ -1,0 +1,20 @@
+[
+  {
+    "name": "FoodMind Customer",
+    "email": "demo@food.com",
+    "password": "123456",
+    "role": "customer"
+  },
+  {
+    "name": "Urban Bites Partner",
+    "email": "partner@food.com",
+    "password": "123456",
+    "role": "partner"
+  },
+  {
+    "name": "Tariq Mehmood",
+    "email": "rider@food.com",
+    "password": "123456",
+    "role": "rider"
+  }
+]

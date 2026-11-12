@@ -1,196 +1,118 @@
 import React from 'react';
-import { View, Image, Pressable, SectionList, StyleSheet } from 'react-native';
+import { useSelector } from 'react-redux';
+import { Image, View, Pressable, SectionList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppText from '../../components/AppText';
-import CareIcon from '../../assets/icons/customer-care.svg';
-import EditIcon from '../../assets/icons/edit-button.svg';
-import LocationPin from '../../assets/icons/location-pin.png';
-import PaymentIcon from '../../assets/icons/payment-icon.png';
-import FavoritesIcon from '../../assets/icons/favorites.png';
-import ReviewStar from '../../assets/icons/review-star.png';
-import PreferencesIcon from '../../assets/icons/preferences.png';
-import NotificationsIcon from '../../assets/icons/notifications.png';
-import SettingsIcon from '../../assets/icons/settings.png';
-import LogoutIcon from '../../assets/icons/logout.png';
+import Header from '../../components/Header';
+import Icon from '../../components/Icon';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faLocationDot, faStar, faGear, faRightFromBracket, faPen, faChevronRight, faBagShopping, faGift, faMotorcycle, faHeadset } from '@fortawesome/free-solid-svg-icons';
+import { selectCustomer, selectPoints } from '../../redux/customerSlice';
+import { selectMyOrders } from '../../redux/ordersSlice';
+import { useCustomerPreview } from '../../navigation/PreviewContext';
+import { initials } from '../../utils/format';
 import { COLORS } from '../../theme/colors';
 import { SPACING, RADIUS } from '../../theme/spacing';
 
-const USER = {
-    name: 'Syed Hashim Abbas',
-    email: 'hashim@example.com',
-    tier: 'FOODMIND VIP GOURMET',
-    orders: 24,
-    reviews: 12,
-    saved: 'Rs. 450',
-};
-
-const SECTIONS = [
-    {
-        title: 'ACCOUNT',
-        data: [
-            { id: 'addresses', source: LocationPin, label: 'Saved Addresses' },
-            { id: 'payments', source: PaymentIcon, label: 'Payment Methods' },
-            { id: 'favourites', source: FavoritesIcon, label: 'Favourite Dishes' },
-        ],
-    },
-    {
-        title: 'ACTIVITY & PREFERENCES',
-        data: [
-            { id: 'reviews', source: ReviewStar, label: 'My Reviews & Ratings' },
-            { id: 'dietary', source: PreferencesIcon, label: 'Dietary Preferences', badge: 'AI' },
-            { id: 'notifications', source: NotificationsIcon, label: 'Notifications', dot: true },
-        ],
-    },
-    {
-        title: 'SUPPORT & APP',
-        data: [
-            { id: 'help', comp: CareIcon, label: 'Help & Customer Care' },
-            { id: 'settings', source: SettingsIcon, label: 'Settings' },
-            { id: 'logout', source: LogoutIcon, label: 'Log Out', danger: true },
-        ],
-    },
-];
-
-function Stat({ value, label, accent }) {
-    return (
-        <View style={styles.stat}>
-            <AppText style={[styles.statValue, accent && styles.accentText]}>{value}</AppText>
-            <AppText style={styles.statLabel}>{label}</AppText>
-        </View>
-    );
+function sectionsFor(preview) {
+  return [
+    { title: 'ACCOUNT', data: [
+      { id: 'orders', icon: faBagShopping, label: 'My Orders' },
+      { id: 'addresses', icon: faLocationDot, label: 'Saved Addresses' },
+    ] },
+    { title: 'ACTIVITY & REWARDS', data: [
+      { id: 'reviews', icon: faStar, label: 'My Reviews & Ratings' },
+      { id: 'rewards', icon: faGift, label: 'Points & Rewards' },
+      { id: 'community', icon: faMotorcycle, label: 'Community Delivery' },
+    ] },
+    { title: 'SUPPORT & APP', data: [
+      { id: 'help', icon: faHeadset, label: 'Help & Customer Care' },
+      { id: 'settings', icon: faGear, label: 'Settings' },
+      // A partner previewing the customer app returns with the banner above, not by logging out.
+      ...(preview ? [] : [{ id: 'logout', icon: faRightFromBracket, label: 'Log Out', danger: true }]),
+    ] },
+  ];
 }
 
-function ProfileHeader() {
-    return (
-        <View>
-            <View style={styles.titleRow}>
-                <AppText style={styles.title}>Profile</AppText>
-                <View style={styles.gear}>
-                    <Image source={SettingsIcon} style={styles.gearImage} />
-                </View>
-            </View>
+function Stat({ value, label, accent }) {
+  return <View style={styles.stat}>
+    <AppText variant="subheading" color={accent ? COLORS.primary : COLORS.text}>{value}</AppText>
+    <AppText variant="small" color={COLORS.textSecondary}>{label}</AppText>
+  </View>;
+}
 
-            <View style={styles.identity}>
-                <View style={styles.avatar}>
-                    <AppText style={styles.avatarText}>SH</AppText>
-                    <View style={styles.editBadge}>
-                        <EditIcon width={34} height={35} color={COLORS.primary} />
-                    </View>
-                </View>
-                <AppText style={styles.name}>{USER.name}</AppText>
-                <AppText style={styles.email}>{USER.email}</AppText>
-                <View style={styles.tier}>
-                    <Image source={ReviewStar} style={styles.tierStar} />
-                    <AppText style={styles.tierText}>{USER.tier}</AppText>
-                </View>
-            </View>
-
-            <View style={styles.stats}>
-                <Stat value={USER.orders} label="Orders" />
-                <Stat value={USER.reviews} label="Reviews" />
-                <Stat value={USER.saved} label="Saved" accent />
-            </View>
-        </View>
-    );
+function ProfileHeader({ onEdit }) {
+  const user = useSelector(state => state.auth.user);
+  const orderCount = useSelector(state => selectMyOrders(state).length);
+  const points = useSelector(selectPoints);
+  const { reviews, profile } = useSelector(selectCustomer);
+  return <View>
+    <View style={styles.identity}>
+      <Pressable style={styles.avatar} onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit profile">
+        {profile.photo ? <Image source={{ uri: profile.photo }} style={styles.photo} /> : <AppText variant="title" color={COLORS.primary}>{initials(user?.name)}</AppText>}
+        <View style={styles.editBadge}><FontAwesomeIcon icon={faPen} size={13} color={COLORS.white} /></View>
+      </Pressable>
+      <AppText variant="heading">{user?.name || 'FoodMind User'}</AppText>
+      <AppText color={COLORS.textSecondary} style={styles.email}>{user?.email || ''}</AppText>
+      <View style={styles.tier}><Icon name="gift" size={13} /><AppText variant="small" color={COLORS.primary} style={styles.bold}>{points} reward points</AppText></View>
+    </View>
+    <View style={styles.stats}>
+      <Stat value={orderCount} label="Orders" />
+      <Stat value={reviews.length} label="Reviews" />
+      <Stat value={points} label="Points" accent />
+    </View>
+  </View>;
 }
 
 export default function ProfileScreen({ onItemPress }) {
-    return (
-        <SafeAreaView style={styles.safe} edges={['top']}>
-            <SectionList
-                sections={SECTIONS}
-                keyExtractor={(item) => item.id}
-                stickySectionHeadersEnabled={false}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.content}
-                ListHeaderComponent={ProfileHeader}
-                ListFooterComponent={
-                    <AppText style={styles.version}>FoodMind v2.4.1 (Build 890)</AppText>
-                }
-                renderSectionHeader={({ section }) => (
-                    <AppText style={styles.sectionTitle}>{section.title}</AppText>
-                )}
-                renderSectionFooter={() => <View style={styles.sectionGap} />}
-                renderItem={({ item, index, section }) => {
-                    const last = index === section.data.length - 1;
-                    return (
-                        <Pressable
-                            onPress={() => onItemPress?.(item.id)}
-                            style={[
-                                styles.row,
-                                index === 0 && styles.rowFirst,
-                                last && styles.rowLast,
-                                !last && styles.rowDivider,
-                            ]}
-                        >
-                            <View style={[styles.icon, item.danger && styles.iconDanger]}>
-                                {item.comp ? (
-                                    <item.comp width={24} height={24} color={COLORS.primary} />
-                                ) : (
-                                    <Image source={item.source} style={styles.iconImage} />
-                                )}
-                            </View>
-                            <AppText style={[styles.label, item.danger && styles.dangerText]}>
-                                {item.label}
-                            </AppText>
-                            {item.badge ? (
-                                <View style={styles.badge}>
-                                    <AppText style={styles.badgeText}>{item.badge}</AppText>
-                                </View>
-                            ) : null}
-                            <View style={styles.spacer} />
-                            {item.dot ? <View style={styles.dot} /> : null}
-                            <AppText style={styles.chevron}>›</AppText>
-                        </Pressable>
-                    );
-                }}
-            />
-        </SafeAreaView>
-    );
+  const preview = useCustomerPreview();
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <Header title="Profile" centerTitle />
+      <SectionList
+        sections={sectionsFor(preview)}
+        keyExtractor={item => item.id}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={<ProfileHeader onEdit={() => onItemPress?.('edit_profile')} />}
+        renderSectionHeader={({ section }) => <AppText variant="small" color={COLORS.textSecondary} style={styles.sectionTitle}>{section.title}</AppText>}
+        renderSectionFooter={() => <View style={styles.sectionGap} />}
+        renderItem={({ item, index, section }) => {
+          const last = index === section.data.length - 1;
+          return <Pressable onPress={() => onItemPress?.(item.id)} accessibilityRole="button"
+            style={[styles.row, index === 0 && styles.rowFirst, last && styles.rowLast, !last && styles.rowDivider]}>
+            <View style={[styles.icon, item.danger && styles.iconDanger]}>
+              <FontAwesomeIcon icon={item.icon} size={18} color={item.danger ? COLORS.danger : COLORS.primary} />
+            </View>
+            <AppText color={item.danger ? COLORS.danger : COLORS.text} style={[styles.label, styles.medium]}>{item.label}</AppText>
+            <FontAwesomeIcon icon={faChevronRight} size={13} color={COLORS.textSecondary} />
+          </Pressable>;
+        }}
+      />
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: COLORS.background },
-    content: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl },
-
-    titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xl, marginTop: SPACING.lg },
-    title: { fontSize: 30, lineHeight: 38, fontWeight: '800', color: COLORS.text },
-    gear: { width: 44, height: 44, borderRadius: RADIUS.pill, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-    gearImage: { width: 22, height: 22 },
-
-    identity: { alignItems: 'center', marginBottom: SPACING.xl },
-    avatar: { width: 108, height: 108, borderRadius: RADIUS.pill, borderWidth: 3, borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg },
-    avatarText: { fontSize: 34, lineHeight: 40, fontWeight: '700', color: COLORS.primary },
-    editBadge: { position: 'absolute', right: -6, bottom: -2 },
-    name: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: COLORS.text },
-    email: { fontSize: 15, color: COLORS.textSecondary, marginTop: SPACING.xs, marginBottom: 14 },
-    tier: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, borderRadius: 20, backgroundColor: COLORS.primaryLight },
-    tierStar: { width: 14, height: 14 },
-    tierText: { marginLeft: SPACING.sm, fontSize: 13, fontWeight: '700', color: COLORS.primary },
-
-    stats: { flexDirection: 'row', marginBottom: SPACING.xxl },
-    stat: { flex: 1, alignItems: 'center', paddingVertical: 18, marginHorizontal: 6, borderRadius: 20, backgroundColor: COLORS.white },
-    statValue: { fontSize: 20, lineHeight: 26, fontWeight: '800', color: COLORS.text, marginBottom: SPACING.xs },
-    statLabel: { fontSize: 14, color: COLORS.textSecondary },
-    accentText: { color: COLORS.primary },
-
-    sectionTitle: { fontSize: 13, fontWeight: '600', letterSpacing: 1, color: COLORS.textSecondary, marginBottom: 10, marginLeft: SPACING.xs },
-    sectionGap: { height: SPACING.xl },
-
-    row: { flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: COLORS.white },
-    rowFirst: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-    rowLast: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-    rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-    icon: { width: 44, height: 44, borderRadius: 14, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: SPACING.lg },
-    iconDanger: { backgroundColor: '#FDEDEE' },
-    iconImage: { width: 24, height: 24 },
-    label: { fontSize: 17, fontWeight: '600', color: COLORS.text },
-    dangerText: { color: COLORS.danger },
-    badge: { marginLeft: 10, paddingHorizontal: 9, paddingVertical: 3, borderRadius: RADIUS.md, backgroundColor: COLORS.primary },
-    badgeText: { fontSize: 12, fontWeight: '800', color: COLORS.white },
-    spacer: { flex: 1 },
-    dot: { width: 10, height: 10, borderRadius: RADIUS.pill, backgroundColor: COLORS.primary, marginRight: SPACING.md },
-    chevron: { fontSize: 22, lineHeight: 22, color: COLORS.textSecondary },
-
-    version: { textAlign: 'center', fontSize: 14, color: COLORS.textSecondary },
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  content: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm, paddingBottom: SPACING.xxl },
+  bold: { fontWeight: '700' }, medium: { fontWeight: '600' },
+  identity: { alignItems: 'center', marginBottom: SPACING.xl, gap: 2 },
+  avatar: { width: 108, height: 108, borderRadius: RADIUS.pill, borderWidth: 3, borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md },
+  photo: { width: 102, height: 102, borderRadius: 51 },
+  editBadge: { position: 'absolute', right: -4, bottom: 0, backgroundColor: COLORS.primary, borderRadius: RADIUS.pill, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  email: { marginBottom: 12 },
+  tier: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, borderRadius: RADIUS.pill, backgroundColor: COLORS.primaryLight },
+  stats: { flexDirection: 'row', marginBottom: SPACING.xxl },
+  stat: { flex: 1, alignItems: 'center', paddingVertical: 18, marginHorizontal: 6, borderRadius: RADIUS.lg, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  sectionTitle: { fontWeight: '600', letterSpacing: 1, marginBottom: 10, marginLeft: SPACING.xs },
+  sectionGap: { height: SPACING.xl },
+  row: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, backgroundColor: COLORS.surface, paddingHorizontal: SPACING.lg, paddingVertical: 14, borderLeftWidth: 1, borderRightWidth: 1, borderColor: COLORS.border },
+  rowFirst: { borderTopWidth: 1, borderTopLeftRadius: RADIUS.lg, borderTopRightRadius: RADIUS.lg },
+  rowLast: { borderBottomWidth: 1, borderBottomLeftRadius: RADIUS.lg, borderBottomRightRadius: RADIUS.lg },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  icon: { width: 40, height: 40, borderRadius: RADIUS.md, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  iconDanger: { backgroundColor: COLORS.dangerLight },
+  label: { flex: 1 },
 });

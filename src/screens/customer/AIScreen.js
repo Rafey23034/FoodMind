@@ -1,397 +1,100 @@
-import React, { useState } from 'react';
-import {
-    View,
-    TextInput,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AppButton from '../../components/AppButton';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import ScreenFrame from '../../components/ScreenFrame';
 import AppText from '../../components/AppText';
-import AppCard from '../../components/AppCard';
-import MicIcon from '../../assets/icons/mic.png';
+import AppButton from '../../components/AppButton';
+import Icon from '../../components/Icon';
+import { Chip, ui } from '../../components/customer/ui';
+import { restaurant } from '../../data/catalog';
+import { restaurantMeetsTime } from '../../data/discovery';
+import { routes } from '../../navigation/routes';
 import { COLORS } from '../../theme/colors';
-import { SPACING, RADIUS } from '../../theme/spacing';
+import { RADIUS, SPACING } from '../../theme/spacing';
+import { TYPOGRAPHY } from '../../theme/typography';
 
-const MAX_CHARS = 200;
-
+// Every suggestion here returns real matches from the current menu.
 const CRAVINGS = [
-    { emoji: "🍝", text: "Creamy chicken pasta under Rs. 1,200" },
-    { emoji: "🔥", text: "Spicy midnight comfort food" },
-    { emoji: "🥗", text: "Healthy high-protein bowl" },
-    { emoji: "🍲", text: "Authentic Biryani nearby" },
+  { emoji: '🍝', text: 'Creamy chicken pasta under Rs. 1,200' },
+  { emoji: '🔥', text: 'Spicy midnight comfort food' },
+  { emoji: '🌶️', text: 'Spicy chicken under Rs. 900' },
+  { emoji: '🥘', text: 'Authentic biryani nearby' },
 ];
 
-const PREFERENCES = [
-    { id: "budget", emoji: "💰", label: "Under Rs. 1,000" },
-    { id: "rating", emoji: "⭐", label: "Rating 4.5+" },
-    { id: "fast", emoji: "⚡", label: "Under 30 mins" },
-];
+export default function AIScreen({ navigation, route }) {
+  const [request, setRequest] = useState(route?.params?.prompt || '');
+  const [selected, setSelected] = useState([]);
+  const [hint, setHint] = useState('');
+  useEffect(() => {
+    if (route?.params?.prompt !== undefined) setRequest(route.params.prompt);
+  }, [route?.params?.prompt]);
+  // A 30-minute filter is only offered when the restaurant can actually deliver that fast.
+  const fastAvailable = restaurantMeetsTime(restaurant.time, 30);
+  const preferences = [
+    { key: 'budget', icon: 'wallet', label: 'Under Rs. 1,000' },
+    { key: 'rating', icon: 'star', label: 'Rating 4.5+' },
+    { key: 'fast', icon: 'bolt', label: 'Under 30 mins', disabled: !fastAvailable },
+  ];
+  const toggle = key => setSelected(previous => previous.includes(key) ? previous.filter(value => value !== key) : [...previous, key]);
+  return (
+    <ScreenFrame navigation={navigation} title="FoodMind AI"
+      right={<Pressable accessibilityRole="button" accessibilityLabel="Clear request" hitSlop={10} onPress={() => { setRequest(''); setSelected([]); setHint(''); }}>
+        <AppText variant="small" color={COLORS.primary} style={ui.bold}>Clear</AppText></Pressable>}
+      footer={<AppButton title="Find My Food  →" disabled={!request.trim()}
+        onPress={() => navigation.navigate(routes.AI_RECOMMENDATIONS, { prompt: request.trim(), preferences: selected })} />}>
+      <Animated.View entering={FadeIn.duration(300)} style={styles.banner}>
+        <View style={styles.aiSquare}><Icon name="ai" size={22} color={COLORS.white} /></View>
+        <View style={ui.flex}>
+          <AppText variant="subheading">Tell me what you're craving</AppText>
+          <AppText variant="small" color={COLORS.textSecondary}>Use natural language. Mention food type, budget, dietary needs, or even your mood.</AppText>
+        </View>
+      </Animated.View>
 
-export default function FoodMindAIScreen({ onBack, onSubmit }) {
-    const [query, setQuery] = useState("");
-    const [selectedPrefs, setSelectedPrefs] = useState([]);
+      <View style={ui.between}>
+        <AppText variant="caption" color={COLORS.textSecondary} style={styles.section}>POPULAR CRAVINGS</AppText>
+        <AppText variant="caption" color={COLORS.textSecondary}>Tap to insert</AppText>
+      </View>
+      <View style={ui.wrap}>
+        {CRAVINGS.map(item => <Chip key={item.text} label={`${item.emoji}  ${item.text}`} selected={request === item.text} onPress={() => setRequest(item.text)} />)}
+      </View>
 
-    const canSubmit = query.trim().length > 0;
+      <AppText variant="caption" color={COLORS.textSecondary} style={styles.section}>YOUR REQUEST</AppText>
+      <View style={styles.requestBox}>
+        <TextInput accessibilityLabel="Your food request" value={request} onChangeText={setRequest}
+          maxLength={200} multiline placeholder="E.g., Find me a rich chicken pasta under Rs. 1,200, highly rated..."
+          placeholderTextColor={COLORS.textSecondary} style={styles.input} />
+        <View style={ui.between}>
+          <AppText variant="caption" color={COLORS.textSecondary}>{request.length} / 200 characters</AppText>
+          <Pressable accessibilityRole="button" accessibilityLabel="Voice input information" hitSlop={8}
+            onPress={() => setHint('Voice input will be connected with the AI service. You can type your request above.')} style={styles.microphone}>
+            <Icon name="microphone" size={16} />
+          </Pressable>
+        </View>
+      </View>
+      {hint ? <AppText variant="caption" color={COLORS.textSecondary}>{hint}</AppText> : null}
 
-    const togglePref = (id) =>
-        setSelectedPrefs((prev) =>
-            prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-        );
-
-    const handleClear = () => {
-        setQuery("");
-        setSelectedPrefs([]);
-    };
-
-    const handleSubmit = () =>
-        onSubmit?.({ query: query.trim(), preferences: selectedPrefs });
-
-    return (
-        <SafeAreaView style={styles.safe} edges={['top']}>
-            <ScrollView
-                style={styles.flex}
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable
-                        onPress={onBack}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel="Go back"
-                        style={({ pressed }) => [
-                            styles.backButton,
-                            pressed && styles.pressed,
-                        ]}
-                    >
-                        <AppText style={styles.backText}>‹</AppText>
-                    </Pressable>
-
-                    <AppText style={styles.headerTitle} numberOfLines={1}>
-                        FoodMind AI <AppText style={styles.sparkle}>✦</AppText>
-                    </AppText>
-
-                    <Pressable
-                        onPress={handleClear}
-                        style={({ pressed }) => [
-                            styles.clearButton,
-                            pressed && styles.pressed,
-                        ]}
-                    >
-                        <AppText style={styles.clearText}>Clear</AppText>
-                    </Pressable>
-                </View>
-
-                {/* Intro card */}
-                <AppCard style={styles.introCard}>
-                    <View style={styles.aiBadge}>
-                        <AppText color={COLORS.white} style={styles.aiBadgeText}>AI</AppText>
-                    </View>
-                    <View style={styles.introBody}>
-                        <AppText style={styles.introTitle}>
-                            Tell me what you're craving
-                        </AppText>
-                        <AppText style={styles.introSubtitle}>
-                            Use natural language. Mention food type, budget,
-                            dietary needs, or even your mood.
-                        </AppText>
-                    </View>
-                </AppCard>
-
-                {/* Popular cravings */}
-                <View style={styles.sectionHeader}>
-                    <AppText style={styles.sectionLabel}>POPULAR CRAVINGS</AppText>
-                    <AppText style={styles.sectionHint}>Tap to insert</AppText>
-                </View>
-
-                <View style={styles.cravingList}>
-                    {CRAVINGS.map((item) => (
-                        <Pressable
-                            key={item.text}
-                            onPress={() => setQuery(item.text)}
-                            style={({ pressed }) => [
-                                styles.chip,
-                                pressed && styles.pressed,
-                            ]}
-                        >
-                            <AppText style={styles.chipText}>
-                                {item.emoji}  "{item.text}"
-                            </AppText>
-                        </Pressable>
-                    ))}
-                </View>
-
-                {/* Request input */}
-                <AppText style={[styles.sectionLabel, styles.requestLabel]}>
-                    YOUR REQUEST
-                </AppText>
-
-                <AppCard style={styles.inputCard}>
-                    <TextInput
-                        value={query}
-                        onChangeText={setQuery}
-                        maxLength={MAX_CHARS}
-                        multiline
-                        textAlignVertical="top"
-                        placeholder="E.g., Find me a rich chicken pasta under Rs. 1,200, highly rated, delivered within 30 mins..."
-                        placeholderTextColor={COLORS.textSecondary}
-                        style={styles.input}
-                    />
-                    <View style={styles.divider} />
-                    <View style={styles.inputFooter}>
-                        <AppText style={styles.counter}>
-                            {query.length} / {MAX_CHARS} characters
-                        </AppText>
-                        <Pressable
-                            accessibilityLabel="Voice input"
-                            style={({ pressed }) => [
-                                styles.micButton,
-                                pressed && styles.pressed,
-                            ]}
-                        >
-                            <Image source={MicIcon} style={styles.micIcon} />
-                        </Pressable>
-                    </View>
-                </AppCard>
-
-                {/* Quick preferences */}
-                <AppText style={[styles.sectionLabel, styles.prefLabel]}>
-                    QUICK PREFERENCES
-                </AppText>
-
-                {/* Negative margin lets the chips scroll edge-to-edge */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.prefScroll}
-                    contentContainerStyle={styles.prefRow}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {PREFERENCES.map((pref) => {
-                        const active = selectedPrefs.includes(pref.id);
-                        return (
-                            <Pressable
-                                key={pref.id}
-                                onPress={() => togglePref(pref.id)}
-                                style={({ pressed }) => [
-                                    styles.prefChip,
-                                    active && styles.prefChipActive,
-                                    pressed && styles.pressed,
-                                ]}
-                            >
-                                <AppText
-                                    style={[
-                                        styles.chipText,
-                                        active && styles.prefChipTextActive,
-                                    ]}
-                                >
-                                    {pref.emoji}  {pref.label}
-                                </AppText>
-                            </Pressable>
-                        );
-                    })}
-                </ScrollView>
-            </ScrollView>
-
-            {/* CTA */}
-            <View style={styles.footer}>
-                <AppButton
-                    title="Find My Food  →"
-                    onPress={handleSubmit}
-                    disabled={!canSubmit}
-                    style={styles.cta}
-                    testID="find-food-button"
-                />
-            </View>
-        </SafeAreaView>
-    );
+      <AppText variant="caption" color={COLORS.textSecondary} style={styles.section}>QUICK PREFERENCES</AppText>
+      <View style={ui.wrap}>
+        {preferences.map(item => <Pressable key={item.key} disabled={item.disabled} onPress={() => toggle(item.key)}
+          accessibilityRole="button" accessibilityState={{ selected: selected.includes(item.key), disabled: item.disabled }}
+          style={[styles.preference, selected.includes(item.key) && styles.preferenceSelected, item.disabled && styles.preferenceDisabled]}>
+          <Icon name={item.icon} size={13} color={item.disabled ? COLORS.textSecondary : COLORS.primary} />
+          <AppText variant="small" color={item.disabled ? COLORS.textSecondary : COLORS.text}>{item.label}</AppText>
+        </Pressable>)}
+      </View>
+      {!fastAvailable ? <AppText variant="caption" color={COLORS.textSecondary}>{restaurant.name} currently delivers in {restaurant.time}, so the 30-minute filter is unavailable.</AppText> : null}
+    </ScreenFrame>
+  );
 }
 
 const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: COLORS.background },
-    flex: { flex: 1 },
-    scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
-    pressed: { opacity: 0.7 },
-
-    // Header
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingTop: SPACING.md,
-        paddingBottom: SPACING.lg,
-    },
-    backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: RADIUS.pill,
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
-    },
-    backText: {
-        fontSize: 30,
-        lineHeight: 32,
-        color: COLORS.text,
-        marginTop: -4,
-        marginLeft: -2,
-        includeFontPadding: false,
-    },
-    headerTitle: {
-        flex: 1,
-        marginLeft: 14,
-        fontSize: 24,
-        fontWeight: '800',
-        letterSpacing: -0.4,
-        color: COLORS.text,
-    },
-    sparkle: { fontSize: 14, color: COLORS.primary },
-    clearButton: {
-        paddingHorizontal: 18,
-        paddingVertical: 9,
-        borderRadius: 20,
-        backgroundColor: COLORS.inputBackground,
-    },
-    clearText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-
-    // Intro card
-    introCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: SPACING.xl,
-        borderRadius: 28,
-        backgroundColor: COLORS.primaryLight,
-        borderColor: COLORS.border,
-        marginBottom: SPACING.xxl,
-    },
-    aiBadge: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        backgroundColor: COLORS.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: SPACING.lg,
-        shadowColor: COLORS.primary,
-        shadowOpacity: 0.35,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
-    },
-    aiBadgeText: { fontSize: 18, fontWeight: '800' },
-    introBody: { flex: 1 },
-    introTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        letterSpacing: -0.3,
-        color: COLORS.text,
-        marginBottom: 6,
-    },
-    introSubtitle: { fontSize: 14, lineHeight: 21, color: COLORS.textSecondary },
-
-    // Section headings
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 14,
-    },
-    sectionLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        letterSpacing: 1.2,
-        color: COLORS.textSecondary,
-    },
-    sectionHint: { fontSize: 13, color: COLORS.textSecondary },
-
-    // Chips
-    cravingList: { alignItems: 'flex-start', marginBottom: SPACING.xxl },
-    chip: {
-        paddingHorizontal: SPACING.lg,
-        paddingVertical: 11,
-        borderRadius: 22,
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginBottom: 10,
-    },
-    chipText: { fontSize: 14, color: COLORS.text },
-
-    // Input
-    requestLabel: { marginBottom: 14 },
-    inputCard: {
-        padding: 0,
-        borderRadius: 24,
-        marginBottom: SPACING.xxl,
-        overflow: 'hidden',
-    },
-    input: {
-        minHeight: 110,
-        fontSize: 16,
-        lineHeight: 24,
-        color: COLORS.text,
-        paddingHorizontal: 18,
-        paddingTop: 16,
-        paddingBottom: 12,
-    },
-    divider: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: COLORS.border,
-    },
-    inputFooter: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 18,
-        paddingVertical: 10,
-    },
-    counter: { fontSize: 13, color: COLORS.textSecondary },
-    micButton: {
-        width: 40,
-        height: 40,
-        borderRadius: RADIUS.pill,
-        backgroundColor: COLORS.inputBackground,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    micIcon: { width: 20, height: 20 },
-
-    // Quick preferences
-    prefLabel: { marginBottom: 14 },
-    prefScroll: { marginHorizontal: -SPACING.xl },
-    prefRow: { paddingHorizontal: SPACING.xl },
-    prefChip: {
-        paddingHorizontal: SPACING.lg,
-        paddingVertical: 11,
-        borderRadius: 22,
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginRight: 10,
-    },
-    prefChipActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
-    prefChipTextActive: { color: COLORS.primary, fontWeight: '600' },
-
-    // CTA
-    footer: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.xl, paddingBottom: SPACING.lg },
-    cta: {
-        height: 56,
-        borderRadius: 20,
-        shadowColor: COLORS.primary,
-        shadowOpacity: 0.3,
-        shadowRadius: 14,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 6,
-    },
+  banner: { backgroundColor: COLORS.primaryLight, padding: SPACING.lg, borderRadius: RADIUS.lg, borderColor: COLORS.primaryBorder, borderWidth: 1, flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
+  aiSquare: { width: 52, height: 52, backgroundColor: COLORS.primary, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
+  section: { fontWeight: '700', letterSpacing: 1 },
+  requestBox: { backgroundColor: COLORS.surface, borderColor: COLORS.border, borderWidth: 1, borderRadius: RADIUS.lg, padding: SPACING.lg, gap: SPACING.sm },
+  input: { ...TYPOGRAPHY.body, color: COLORS.text, minHeight: 110, textAlignVertical: 'top', padding: 0 },
+  microphone: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  preference: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+  preferenceSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+  preferenceDisabled: { backgroundColor: COLORS.inputBackground, opacity: 0.7 },
 });

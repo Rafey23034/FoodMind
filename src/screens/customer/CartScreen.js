@@ -1,212 +1,102 @@
 import React from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AppButton from '../../components/AppButton';
-import AppCard from '../../components/AppCard';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { openHome } from '../../navigation/customerNavigation';
+import ScreenFrame from '../../components/ScreenFrame';
 import AppText from '../../components/AppText';
-import { useShop } from '../../state/ShopContext';
-import { COLORS } from '../../theme/colors';
+import AppButton from '../../components/AppButton';
+import Icon from '../../components/Icon';
+import FoodThumbnail from '../../components/FoodThumbnail';
+import PlusIcon from '../../components/icons/PlusIcon';
+import MinusIcon from '../../components/icons/MinusIcon';
+import { BillRow, EmptyState, Notice, ui } from '../../components/customer/ui';
+import { changeQuantity, clearCart, removeItem, selectBill, selectCartCount, selectCartLines } from '../../redux/cartSlice';
+import { selectRestaurantOnline } from '../../redux/partnerSlice';
 import { routes } from '../../navigation/routes';
+import { restaurant, formatPrice } from '../../data/catalog';
+import { confirmAction } from '../../utils/confirm';
+import { plural } from '../../utils/format';
+import { COLORS } from '../../theme/colors';
+import { SPACING, RADIUS } from '../../theme/spacing';
 
-const money = value => `Rs. ${value.toLocaleString('en-PK')}`;
-const instructions = ['Leave at doorstep', 'Call on arrival', 'Do not ring'];
-
+// Cart tab root: no back button (it is a tab), prices always reflect the current menu.
 export default function CartScreen({ navigation }) {
-    const {
-        cart, subtotal, discount, platformFee, deliveryFee, cartTotal,
-        promoApplied, setPromoApplied, instruction, setInstruction,
-        changeQuantity, removeItem, clearCart,
-    } = useShop();
+  const dispatch = useDispatch();
+  const lines = useSelector(selectCartLines);
+  const count = useSelector(selectCartCount);
+  const online = useSelector(selectRestaurantOnline);
+  const { subtotal, platformFee, deliveryFee, cartTotal } = useSelector(selectBill);
+  const unavailable = lines.filter(line => !line.available);
+  const empty = lines.length === 0;
 
-    const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const clear = () => confirmAction({ title: 'Clear your cart?', message: `This removes ${plural(count, 'item')}.`, confirmLabel: 'Clear cart', onConfirm: () => dispatch(clearCart()) });
+  const remove = line => confirmAction({ title: `Remove ${line.name}?`, confirmLabel: 'Remove', onConfirm: () => dispatch(removeItem(line.id)) });
 
-    function handleClear() {
-        Alert.alert('Clear Cart', 'Remove all items from your cart?', [
-            { text: 'Cancel' },
-            { text: 'Clear', onPress: clearCart },
-        ]);
-    }
-
-    return (
-        <SafeAreaView style={styles.screen}>
-            <View style={styles.header}>
-                <Pressable style={styles.circleButton} onPress={() => navigation.goBack()}>
-                    <AppText style={styles.headerIcon}>‹</AppText>
-                </Pressable>
-                <View style={styles.headerTitle}>
-                    <AppText variant="subheading">Your Cart</AppText>
-                    <AppText variant="small" color={COLORS.textSecondary}>{itemCount} items added</AppText>
-                </View>
-                <Pressable style={styles.circleButton} onPress={handleClear}>
-                    <AppText style={styles.headerIcon}>×</AppText>
-                </Pressable>
+  return (
+    <ScreenFrame navigation={navigation} title="Your Cart" subtitle={empty ? '' : `${restaurant.name} · ${plural(count, 'item')}`} onBack={false}
+      right={empty ? null : <Pressable onPress={clear} accessibilityRole="button" accessibilityLabel="Clear cart" hitSlop={10}><AppText variant="small" color={COLORS.danger} style={ui.bold}>Clear</AppText></Pressable>}
+      footer={empty ? null : <View style={styles.footer}>
+        <View><AppText variant="caption" color={COLORS.textSecondary}>Total payable</AppText><AppText variant="subheading">{formatPrice(cartTotal)}</AppText></View>
+        <AppButton title="Checkout  →" style={styles.checkout} disabled={!online || unavailable.length > 0 || subtotal === 0} onPress={() => navigation.navigate(routes.CHECKOUT)} />
+      </View>}>
+      {empty ? <>
+        <EmptyState icon="bag" title="Your cart is empty">Add a dish from the menu and it will appear here.</EmptyState>
+        <AppButton title="Browse menu" onPress={() => openHome(navigation)} />
+      </> : <>
+        {!online ? <Notice warning icon="clock" title={`${restaurant.name} is not accepting orders right now`}>Your cart is saved. You can check out when the restaurant is back online.</Notice> : null}
+        {unavailable.length ? <Notice warning icon="warning" title="Some items are no longer available">Remove them to continue to checkout.</Notice> : null}
+        {lines.map(line => (
+          <View key={line.id} style={[ui.card, !line.available && styles.unavailable]}>
+            <View style={styles.itemRow}>
+              <FoodThumbnail dishId={line.dishId || line.id.split('-extra')[0]} symbol={line.symbol} size={64} />
+              <View style={ui.flex}>
+                <AppText style={ui.bold}>{line.name}</AppText>
+                <AppText variant="small" color={COLORS.textSecondary}>{line.option || line.subtitle}</AppText>
+                {line.available ? <AppText variant="small" color={COLORS.primary}>{formatPrice(line.price)}{line.priceChanged ? `  (was ${formatPrice(line.previousPrice)})` : ''}</AppText>
+                  : <AppText variant="small" color={COLORS.danger} style={ui.bold}>Unavailable</AppText>}
+              </View>
+              {/* Available lines are removed from the quantity control; unavailable ones only need this button. */}
+              {!line.available ? <Pressable onPress={() => remove(line)} accessibilityRole="button" accessibilityLabel={`Remove ${line.name}`} hitSlop={10} style={styles.iconButton}>
+                <Icon name="trash" size={15} color={COLORS.danger} />
+              </Pressable> : null}
             </View>
-
-            <ScrollView contentContainerStyle={styles.content}>
-                <AppCard style={styles.restaurantCard}>
-                    <View style={styles.restaurantLogo}><AppText color={COLORS.primary}>UB</AppText></View>
-                    <View style={styles.flex}>
-                        <AppText style={styles.bold}>Urban Bites</AppText>
-                        <AppText variant="caption" color={COLORS.textSecondary}>⌖ Johar Town, Lahore</AppText>
-                    </View>
-                    <View style={styles.timeBadge}>
-                        <AppText variant="caption" color={COLORS.primary}>◷ 25–30 mins</AppText>
-                    </View>
-                </AppCard>
-
-                {cart.length === 0 ? (
-                    <AppCard>
-                        <AppText style={styles.center}>Your cart is empty.</AppText>
-                        <AppButton title="Browse Food" onPress={() => navigation.popTo(routes.HOME)} />
-                    </AppCard>
-                ) : (
-                    cart.map(item => (
-                        <AppCard key={item.id} style={styles.itemCard}>
-                            <View style={styles.itemRow}>
-                                <Image source={{ uri: item.image }} style={styles.foodImage} />
-                                <View style={styles.flex}>
-                                    <AppText style={styles.bold}>🟢 {item.name}</AppText>
-                                    <AppText variant="small" color={COLORS.textSecondary}>{item.subtitle}</AppText>
-                                    <AppText variant="small" color={COLORS.warning}>★ {item.rating}
-                                        <AppText variant="small" color={COLORS.textSecondary}>  ·  {item.option}</AppText>
-                                    </AppText>
-                                </View>
-                                <Pressable onPress={() => removeItem(item.id)} style={styles.removeButton}>
-                                    <AppText color={COLORS.textSecondary}>×</AppText>
-                                </Pressable>
-                            </View>
-
-                            <View style={styles.itemBottom}>
-                                <View>
-                                    <AppText variant="caption" color={COLORS.textSecondary}>Unit: {money(item.price)}</AppText>
-                                    <AppText color={COLORS.primary} style={styles.bold}>
-                                        {money(item.price * item.quantity)}
-                                    </AppText>
-                                </View>
-                                <View style={styles.quantityBox}>
-                                    <Pressable style={styles.quantityButton} onPress={() => changeQuantity(item.id, -1)}>
-                                        <AppText>−</AppText>
-                                    </Pressable>
-                                    <AppText style={styles.quantity}>{item.quantity}</AppText>
-                                    <Pressable style={styles.plusButton} onPress={() => changeQuantity(item.id, 1)}>
-                                        <AppText color={COLORS.white}>+</AppText>
-                                    </Pressable>
-                                </View>
-                            </View>
-                        </AppCard>
-                    ))
-                )}
-
-                <Pressable style={styles.addMore} onPress={() => navigation.popTo(routes.HOME)}>
-                    <AppText color={COLORS.primary}>＋ Add more items from Urban Bites</AppText>
-                </Pressable>
-
-                <AppCard>
-                    <View style={styles.spaceBetween}>
-                        <AppText style={styles.sectionTitle}>◷  DELIVERY INSTRUCTIONS</AppText>
-                        <AppText variant="caption" color={COLORS.primary}>Optional</AppText>
-                    </View>
-                    <View style={styles.chipRow}>
-                        {instructions.map(option => (
-                            <Pressable key={option} onPress={() => setInstruction(option)}
-                                style={[styles.chip, instruction === option && styles.selectedChip]}>
-                                <AppText variant="caption" color={instruction === option ? COLORS.primary : COLORS.textSecondary}>
-                                    {option}
-                                </AppText>
-                            </Pressable>
-                        ))}
-                    </View>
-                </AppCard>
-
-                <Pressable style={styles.promoCard} onPress={() => setPromoApplied(!promoApplied)}>
-                    <View style={styles.promoIcon}><AppText color={COLORS.primary}>◇</AppText></View>
-                    <View style={styles.flex}>
-                        <AppText style={styles.bold}>FOODMIND50 {promoApplied ? '✓' : ''}</AppText>
-                        <AppText variant="caption" color={COLORS.textSecondary}>
-                            {promoApplied ? `You saved ${money(discount)} with this promo` : 'Tap to apply your promo'}
-                        </AppText>
-                    </View>
-                    <AppText variant="small" color={COLORS.primary}>{promoApplied ? 'Remove' : 'Apply'}</AppText>
-                </Pressable>
-
-                <AppCard>
-                    <AppText style={styles.sectionTitle}>BILL SUMMARY</AppText>
-                    <View style={styles.billRow}>
-                        <AppText color={COLORS.textSecondary}>Item Total</AppText>
-                        <AppText>{money(subtotal)}</AppText>
-                    </View>
-                    <View style={styles.billRow}>
-                        <AppText color={COLORS.textSecondary}>Delivery Partner Fee</AppText>
-                        <AppText>{money(deliveryFee)}</AppText>
-                    </View>
-                    <View style={styles.billRow}>
-                        <AppText color={COLORS.textSecondary}>Platform Fee</AppText>
-                        <AppText>{money(platformFee)}</AppText>
-                    </View>
-                    <View style={styles.billRow}>
-                        <AppText color={COLORS.success}>Voucher Discount</AppText>
-                        <AppText color={COLORS.success}>− {money(discount)}</AppText>
-                    </View>
-                    <View style={styles.totalRow}>
-                        <AppText style={styles.bold}>To Pay</AppText>
-                        <AppText variant="subheading">{money(cartTotal)}</AppText>
-                    </View>
-                    <AppText variant="caption" color={COLORS.textSecondary}>Inclusive of all taxes</AppText>
-                </AppCard>
-            </ScrollView>
-
-            <View style={styles.footer}>
-                <View>
-                    <AppText variant="caption" color={COLORS.white}>TOTAL PAYABLE</AppText>
-                    <AppText variant="subheading" color={COLORS.white}>{money(cartTotal)}</AppText>
-                </View>
-                <Pressable disabled={cart.length === 0} onPress={() => navigation.navigate(routes.CHECKOUT)}>
-                    <AppText color={COLORS.white} style={styles.bold}>Proceed to Checkout  →</AppText>
-                </Pressable>
-            </View>
-        </SafeAreaView>
-    );
+            {line.available ? <View style={styles.itemBottom}>
+              <AppText style={ui.bold}>{formatPrice(line.price * line.quantity)}</AppText>
+              <View style={styles.quantityControl}>
+                {line.quantity === 1
+                  ? <Pressable style={styles.step} onPress={() => remove(line)} accessibilityRole="button" accessibilityLabel={`Remove ${line.name}`}><Icon name="trash" size={14} color={COLORS.danger} /></Pressable>
+                  : <Pressable style={styles.step} onPress={() => dispatch(changeQuantity({ id: line.id, amount: -1 }))} accessibilityRole="button" accessibilityLabel={`Decrease ${line.name}`}><MinusIcon /></Pressable>}
+                <AppText style={[ui.bold, styles.quantity]} accessibilityLabel={`Quantity ${line.quantity}`}>{line.quantity}</AppText>
+                <Pressable style={styles.step} disabled={line.quantity >= 99} onPress={() => dispatch(changeQuantity({ id: line.id, amount: 1 }))} accessibilityRole="button" accessibilityLabel={`Increase ${line.name}`}><PlusIcon /></Pressable>
+              </View>
+            </View> : null}
+          </View>
+        ))}
+        <Pressable style={styles.addMore} onPress={() => openHome(navigation)} accessibilityRole="button">
+          <AppText color={COLORS.primary} style={ui.bold}>+ Add more dishes</AppText>
+        </Pressable>
+        <View style={ui.card}>
+          <AppText variant="subheading">Bill summary</AppText>
+          <BillRow label="Subtotal" value={formatPrice(subtotal)} />
+          <BillRow label="Delivery fee" value={formatPrice(deliveryFee)} />
+          <BillRow label="Platform fee" value={formatPrice(platformFee)} />
+          <View style={ui.line} />
+          <BillRow label="Total" value={formatPrice(cartTotal)} bold />
+        </View>
+      </>}
+    </ScreenFrame>
+  );
 }
 
 const styles = StyleSheet.create({
-    screen: {
-        flex: 1,
-        backgroundColor: COLORS.background
-    },
-
-    flex: {
-        flex: 1,
-        gap: 4
-    },
-
-    bold: { fontWeight: '700' },
-    center: { textAlign: 'center', marginBottom: 12 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
-    headerTitle: { alignItems: 'center' },
-    circleButton: { width: 38, height: 38, backgroundColor: COLORS.white, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border },
-    headerIcon: { fontSize: 25 },
-    content: { paddingHorizontal: 16, paddingBottom: 24 },
-    restaurantCard: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    restaurantLogo: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
-    timeBadge: { borderWidth: 1, borderColor: '#FFDDB0', backgroundColor: '#FFF9ED', padding: 7, borderRadius: 20 },
-    itemCard: { gap: 14 },
-    itemRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-    foodImage: { width: 76, height: 76, borderRadius: 12, backgroundColor: COLORS.primaryLight },
-    removeButton: { paddingHorizontal: 6 },
-    itemBottom: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    quantityBox: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: 3 },
-    quantityButton: { backgroundColor: COLORS.inputBackground, borderRadius: 8, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-    plusButton: { backgroundColor: COLORS.primary, borderRadius: 8, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-    quantity: { fontWeight: '700', minWidth: 12, textAlign: 'center' },
-    addMore: { padding: 13, borderWidth: 1, borderColor: COLORS.primary, borderStyle: 'dashed', borderRadius: 12, alignItems: 'center', marginBottom: 15 },
-    spaceBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    sectionTitle: { fontWeight: '700', fontSize: 13 },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-    chip: { padding: 8, borderRadius: 8, backgroundColor: COLORS.inputBackground, borderWidth: 1, borderColor: COLORS.border },
-    selectedChip: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
-    promoCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, backgroundColor: '#FFF9ED', padding: 14, borderWidth: 1, borderColor: '#FFDEBC', marginBottom: 14 },
-    promoIcon: { width: 35, height: 35, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: COLORS.primaryLight },
-    billRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 7 },
-    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12, marginTop: 10 },
-    footer: { backgroundColor: COLORS.primary, padding: 17, margin: 14, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 5 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.lg },
+  checkout: { flex: 1, maxWidth: 200 },
+  unavailable: { opacity: 0.75, borderColor: COLORS.warningBorder },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  iconButton: { padding: SPACING.sm },
+  itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm },
+  quantityControl: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  quantity: { minWidth: 20, textAlign: 'center' },
+  step: { backgroundColor: COLORS.primaryLight, borderRadius: RADIUS.sm, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  addMore: { padding: SPACING.lg, borderRadius: RADIUS.md, borderColor: COLORS.primary, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center' },
 });

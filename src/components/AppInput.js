@@ -9,6 +9,7 @@ export default function AppInput({
   label,
   value,
   onValueChange,
+  onChangeText,
   placeholder,
   error,
   secureTextEntry = false,
@@ -21,7 +22,8 @@ export default function AppInput({
       {label ? <AppText variant="small" style={styles.label}>{label}</AppText> : null}
       <TextInput
         value={value}
-        onChangeText={onValueChange}
+        onChangeText={onChangeText || onValueChange}
+        accessibilityLabel={props.accessibilityLabel || (typeof label === 'string' ? label : placeholder)}
         placeholder={placeholder}
         placeholderTextColor={COLORS.textSecondary}
         secureTextEntry={secureTextEntry}

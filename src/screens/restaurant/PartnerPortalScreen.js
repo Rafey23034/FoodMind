@@ -1,126 +1,72 @@
-import React, { useState } from 'react';
-import { View, Image, Pressable, ScrollView, Switch, StyleSheet } from 'react-native';
+import React from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { View, Image, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { restaurant, formatPrice, findDish } from '../../data/catalog';
+import { foodPhotos, getFoodPhoto } from '../../data/foodPhotos';
+import { selectMenuItems } from '../../redux/menuSlice';
+import { selectPartnerOrders, setPartnerOnline } from '../../redux/partnerSlice';
 import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
-import order1034 from '../../assets/order-1034.png';
-import order1033 from '../../assets/order-1033.png';
+import usePartner from '../../components/partner/usePartner';
+import usePartnerReviews from '../../components/partner/usePartnerReviews';
+import { ratingSummary } from '../../data/partnerReviews';
+import { partnerStage, orderNumber, isLiveForPartner } from '../../data/partnerOrders';
+import { initials } from '../../utils/format';
 import { COLORS } from '../../theme/colors';
 import { SPACING, RADIUS } from '../../theme/spacing';
 
-const STORE = {
-    name: 'Urban Bites',
-    initials: 'RB',
-    greeting: 'Good afternoon, Urban Bites Team',
-};
+const NOTE_TONES = { success: COLORS.success, primary: COLORS.primary, muted: COLORS.textSecondary };
 
-const STATS = [
-    { label: 'ORDERS TODAY', value: '18', note: "↑ 12% vs y'day", tone: 'success', sub: '16 completed' },
-    { label: 'REVENUE', value: 'Rs. 24.5k', note: 'Target 88%', tone: 'primary', sub: 'Avg Rs. 1,360' },
-    { label: 'STORE RATING', value: '4.7 ★', note: '500+ reviews', tone: 'muted', sub: 'Top 5% local' },
-];
-
-const NOTE_TONES = {
-    success: COLORS.success,
-    primary: COLORS.primary,
-    muted: COLORS.textSecondary,
-}; 
-
-const ORDERS = [
-    {
-        id: '1034',
-        image: order1034,
-        items: 'Classic Smash Burger x2, Loaded Fries x1',
-        price: 'Rs. 1,640',
-        placedAt: '2 mins ago',
-        payment: 'Online Paid',
-        isPaid: true,
-        status: 'new',
-    },
-    {
-        id: '1033',
-        image: order1033,
-        items: 'Fire Burger x1, Mint Lemonade x2',
-        price: 'Rs. 1,120',
-        placedAt: 'Rider Assigned',
-        payment: 'COD',
-        isPaid: false,
-        status: 'preparing',
-    },
-];
-
-function StatCard({ label, value, note, tone, sub }) {
+function StatCard({ label, value, note, tone }) {
     return (
         <AppCard style={styles.statCard}>
-            <AppText variant="caption" color={COLORS.textSecondary} style={styles.statLabel}>
-                {label}
-            </AppText>
-            <AppText style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
-                {value}
-            </AppText>
-            <AppText variant="small" style={[styles.statNote, { color: NOTE_TONES[tone] }]}>
-                {note}
-            </AppText>
-            <AppText variant="small" color={COLORS.textSecondary}>
-                {sub}
-            </AppText>
+            <AppText variant="caption" color={COLORS.textSecondary} style={styles.statLabel}>{label}</AppText>
+            <AppText variant="subheading" numberOfLines={1} adjustsFontSizeToFit>{value}</AppText>
+            <AppText variant="caption" style={styles.statNote} color={NOTE_TONES[tone]}>{note}</AppText>
         </AppCard>
     );
 }
 
-function OrderCard({ order, onAccept, onReject, onReady }) {
-    const isNew = order.status === 'new';
-
+function OrderCard({ order, onAccept, onReject, onReady, onOpen }) {
+    const stage = order.stage;
+    const isNew = stage === 'new';
+    const isReady = stage === 'ready';
     return (
         <AppCard style={styles.orderCard}>
-            <View style={[styles.orderStripe, isNew ? styles.stripeNew : styles.stripePreparing]} />
-
+            <View style={[styles.orderStripe, isNew ? styles.stripeNew : isReady ? styles.stripeReady : styles.stripePreparing]} />
             <View style={styles.orderBody}>
                 <View style={styles.orderTop}>
-                    <Image source={order.image} style={styles.orderThumb} />
-
+                    <Image source={order.image || foodPhotos['Classic_Smash_Burger.png']} style={styles.orderThumb} />
                     <View style={styles.orderInfo}>
                         <View style={styles.orderTitleRow}>
-                            <AppText style={styles.orderTitle}>Order #{order.id}</AppText>
-                            <View style={[styles.pill, isNew ? styles.pillNew : styles.pillPreparing]}>
-                                <AppText
-                                    variant="caption"
-                                    style={isNew ? styles.pillTextNew : styles.pillTextPreparing}
-                                >
-                                    {isNew ? '● New Order' : 'Preparing (12m left)'}
+                            <Pressable style={styles.flex} onPress={() => onOpen?.(order.source)} accessibilityRole="button" accessibilityLabel={`Open order ${order.number}`}>
+                                <AppText style={styles.orderTitle}>Order #{order.number} ›</AppText>
+                            </Pressable>
+                            <View style={[styles.pill, isNew ? styles.pillNew : isReady ? styles.pillReady : styles.pillPreparing]}>
+                                <AppText variant="caption" style={styles.bold} color={isNew ? COLORS.primary : isReady ? COLORS.success : COLORS.warning}>
+                                    {isNew ? 'New Order' : isReady ? 'Ready' : 'Preparing'}
                                 </AppText>
                             </View>
                         </View>
-
-                        <AppText variant="small" color={COLORS.text}>
-                            {order.items}
-                        </AppText>
+                        <AppText variant="small">{order.items}</AppText>
                         <AppText variant="small" color={COLORS.textSecondary} style={styles.orderMeta}>
-                            <AppText style={styles.orderPrice}>{order.price}</AppText>
+                            <AppText variant="small" style={styles.bold}>{order.price}</AppText>
                             {'  •  '}{order.placedAt}{'  •  '}
-                            <AppText color={order.isPaid ? COLORS.success : COLORS.textSecondary}>
-                                {order.payment}
-                            </AppText>
+                            <AppText variant="small" color={order.isPaid ? COLORS.success : COLORS.textSecondary}>{order.payment}</AppText>
                         </AppText>
                     </View>
                 </View>
-
                 <View style={styles.divider} />
-
                 {isNew ? (
                     <View style={styles.decisionRow}>
-                        <Pressable style={[styles.orderButton, styles.rejectButton]} onPress={() => onReject?.(order.id)}>
-                            <AppText style={styles.rejectText}>Reject</AppText>
-                        </Pressable>
-                        <Pressable style={[styles.orderButton, styles.acceptButton]} onPress={() => onAccept?.(order.id)}>
-                            <AppText style={styles.acceptText}>✓  Accept Order</AppText>
-                        </Pressable>
+                        <AppButton title="Reject" variant="outline" style={styles.reject} onPress={() => onReject?.(order.id)} />
+                        <AppButton title="Accept Order" icon="check" style={styles.accept} onPress={() => onAccept?.(order.id)} />
                     </View>
                 ) : (
-                    <Pressable style={[styles.orderButton, styles.readyButton]} onPress={() => onReady?.(order.id)}>
-                        <AppText style={styles.readyText}>◔  Ready for Pickup</AppText>
-                    </Pressable>
+                    <AppButton title={isReady ? 'Update Pickup Status' : 'Mark Ready for Pickup'} icon={isReady ? 'rider' : 'clock'} variant="secondary"
+                        onPress={() => onReady?.(order.source)} />
                 )}
             </View>
         </AppCard>
@@ -128,114 +74,88 @@ function OrderCard({ order, onAccept, onReject, onReady }) {
 }
 
 export default function PartnerPortalScreen({
-    onAcceptOrder,
-    onRejectOrder,
-    onReadyOrder,
-    onAddMenuItem,
-    onManageMenu,
-    onSwitchToCustomer,
+    onAcceptOrder, onRejectOrder, onReadyOrder, onAddMenuItem, onManageMenu, onSignOut,
+    onOpenOrder, onViewAllOrders, onOpenStore, onCustomerPreview, onDemoOrders,
 }) {
-    const [isOnline, setIsOnline] = useState(true);
+    const dispatch = useDispatch();
+    const { profile, online: isOnline, userKey, demoOrders } = usePartner();
+    const allOrders = useSelector(selectPartnerOrders);
+    const menuItems = useSelector(selectMenuItems);
+    const reviews = usePartnerReviews();
+    const storeName = profile.name || restaurant.name;
+    const liveOrders = allOrders.filter(isLiveForPartner).map(order => ({
+        id: order.id, number: orderNumber(order), source: order, stage: partnerStage(order),
+        image: getFoodPhoto(findDish(order.items[0]?.dishId || order.items[0]?.id, menuItems)),
+        items: order.items.map(item => `${item.name} ×${item.quantity}`).join(', '),
+        price: formatPrice(order.total),
+        placedAt: order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
+        payment: `${order.isDemo ? 'Sample · ' : ''}${order.isPaid ? 'Online Paid' : 'COD'}`,
+        isPaid: Boolean(order.isPaid),
+    }));
+    // Revenue counts only real customer orders that have left the kitchen (sample orders are excluded).
+    const realOrders = allOrders.filter(order => !order.isDemo);
+    const completed = realOrders.filter(order => ['picked-up', 'delivered'].includes(partnerStage(order)));
+    const revenue = completed.reduce((sum, order) => sum + order.total, 0);
+    const rating = reviews.length ? `${ratingSummary(reviews).average.toFixed(1)} ★` : `${restaurant.rating} ★`;
+    const stats = [
+        { label: 'ORDERS', value: String(realOrders.length), note: `${liveOrders.length} active now`, tone: 'success' },
+        { label: 'REVENUE', value: formatPrice(revenue), note: `${completed.length} completed`, tone: 'primary' },
+        { label: 'RATING', value: rating, note: reviews.length ? `${reviews.length} reviews` : 'Listing rating', tone: 'muted' },
+    ];
 
     return (
         <SafeAreaView style={styles.screen} edges={['top']}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Header */}
                 <View style={styles.headerRow}>
-                    <View>
-                        <AppText variant="small" color={COLORS.primary} style={styles.portalLabel}>
-                            ● PARTNER PORTAL
-                        </AppText>
-                        <AppText style={styles.storeName}>{STORE.name}</AppText>
+                    <View style={styles.headerText}>
+                        <AppText variant="small" color={COLORS.primary} style={styles.portalLabel}>● PARTNER PORTAL</AppText>
+                        <AppText variant="title" numberOfLines={2}>{storeName}</AppText>
                     </View>
-                    <View style={styles.avatar}>
-                        <AppText style={styles.avatarText}>{STORE.initials}</AppText>
-                    </View>
+                    <Pressable style={styles.avatar} onPress={onOpenStore} accessibilityRole="button" accessibilityLabel="Open store profile">
+                        {profile.logoUri ? <Image source={{ uri: profile.logoUri }} style={styles.logo} /> : <AppText variant="subheading" color={COLORS.primary}>{initials(storeName)}</AppText>}
+                    </Pressable>
                 </View>
 
-                {/* Online toggle */}
                 <AppCard style={styles.onlineCard}>
                     <View style={[styles.statusDot, !isOnline && styles.statusDotOffline]} />
-                    <AppText style={styles.onlineText}>
-                        {isOnline ? 'Accepting Orders • Online' : 'Not accepting orders • Offline'}
-                    </AppText>
-                    <View style={styles.spacer} />
-                    <Switch
-                        value={isOnline}
-                        onValueChange={setIsOnline}
-                        trackColor={{ false: COLORS.disabled, true: COLORS.success }}
-                        thumbColor={COLORS.white}
-                    />
+                    <View style={styles.flex}>
+                        <AppText style={styles.medium}>{isOnline ? 'Accepting orders' : 'Not accepting orders'}</AppText>
+                        <AppText variant="caption" color={COLORS.textSecondary}>{isOnline ? 'Customers can check out now' : 'Customers can browse but not order'}</AppText>
+                    </View>
+                    <Switch value={isOnline} onValueChange={online => dispatch(setPartnerOnline({ userKey, online }))}
+                        accessibilityLabel="Accepting orders" trackColor={{ false: COLORS.border, true: COLORS.success }} thumbColor={COLORS.white} />
                 </AppCard>
 
-                <AppText variant="body" color={COLORS.textSecondary} style={styles.greeting}>
-                    {STORE.greeting}
-                </AppText>
-
-                {/* Stats */}
                 <View style={styles.statsRow}>
-                    {STATS.map((stat) => (
-                        <StatCard key={stat.label} {...stat} />
-                    ))}
+                    {stats.map(stat => <StatCard key={stat.label} {...stat} />)}
                 </View>
 
-                {/* Actions */}
                 <View style={styles.actionsRow}>
-                    <AppButton
-                        title="+  Add Menu Item"
-                        onPress={onAddMenuItem}
-                        style={styles.actionButton}
-                    />
-                    <AppButton
-                        title="Manage Menu"
-                        variant="outline"
-                        onPress={onManageMenu}
-                        style={styles.actionButton}
-                    />
+                    <AppButton title="Add Item" icon="utensils" onPress={onAddMenuItem} style={styles.actionButton} />
+                    <AppButton title="Manage Menu" variant="outline" onPress={onManageMenu} style={styles.actionButton} />
                 </View>
 
-                {/* Live orders */}
                 <View style={styles.sectionRow}>
-                    <AppText style={styles.sectionTitle}>Live Orders</AppText>
-                    <View style={styles.activePill}>
-                        <AppText variant="small" color={COLORS.primary} style={styles.activeText}>
-                            {ORDERS.length} Active
-                        </AppText>
-                    </View>
-                    <View style={styles.spacer} />
-                    <Pressable hitSlop={8}>
-                        <AppText variant="small" color={COLORS.primary} style={styles.viewAll}>
-                            View All
-                        </AppText>
-                    </Pressable>
+                    <AppText variant="heading">Live Orders</AppText>
+                    <View style={styles.activePill}><AppText variant="small" color={COLORS.primary} style={styles.medium}>{liveOrders.length} active</AppText></View>
+                    <View style={styles.flex} />
+                    <Pressable onPress={onViewAllOrders} accessibilityRole="button" hitSlop={8}><AppText variant="small" color={COLORS.primary} style={styles.bold}>View All</AppText></Pressable>
                 </View>
 
-                {ORDERS.map((order) => (
-                    <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAccept={onAcceptOrder}
-                        onReject={onRejectOrder}
-                        onReady={onReadyOrder}
-                    />
+                {liveOrders.length === 0 ? (
+                    <AppCard><AppText color={COLORS.textSecondary}>No active orders right now.</AppText></AppCard>
+                ) : liveOrders.map(order => (
+                    <OrderCard key={order.id} order={order} onAccept={onAcceptOrder} onReject={onRejectOrder} onReady={onReadyOrder} onOpen={onOpenOrder} />
                 ))}
+                {!demoOrders.length ? <AppButton title="Load sample orders" variant="outline" onPress={onDemoOrders} style={styles.gap} /> : null}
+                <AppButton title="View Customer Experience" variant="outline" onPress={onCustomerPreview} style={styles.gap} />
 
-                {/* Switch to customer view */}
                 <AppCard style={styles.switchCard}>
-                    <View style={styles.switchIcon}>
-                        <AppText style={styles.switchEmoji}>🍽️</AppText>
+                    <View style={styles.flex}>
+                        <AppText style={styles.bold}>Partner account</AppText>
+                        <AppText variant="small" color={COLORS.textSecondary}>{`Signed in to the ${storeName} partner portal`}</AppText>
                     </View>
-                    <View style={styles.switchInfo}>
-                        <AppText style={styles.switchTitle}>View Customer Experience</AppText>
-                        <AppText variant="small" color={COLORS.textSecondary}>
-                            Browse Urban Bites as a diner
-                        </AppText>
-                    </View>
-                    <Pressable style={styles.switchButton} onPress={onSwitchToCustomer}>
-                        <AppText variant="small" color={COLORS.primary} style={styles.switchButtonText}>
-                            Switch
-                        </AppText>
-                    </Pressable>
+                    <AppButton title="Log Out" variant="outline" onPress={onSignOut} style={styles.switchButton} />
                 </AppCard>
             </ScrollView>
         </SafeAreaView>
@@ -245,123 +165,44 @@ export default function PartnerPortalScreen({
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.background },
     content: { padding: SPACING.xl, paddingBottom: 40 },
-    spacer: { flex: 1 },
-
-    // Header
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: SPACING.lg,
-    },
+    flex: { flex: 1 }, bold: { fontWeight: '700' }, medium: { fontWeight: '600' },
+    gap: { marginBottom: SPACING.lg },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
+    headerText: { flex: 1, marginRight: 12 },
     portalLabel: { fontWeight: '600', marginBottom: 2 },
-    storeName: { fontSize: 32, lineHeight: 40, fontWeight: '800', color: COLORS.text },
-    avatar: {
-        width: 56,
-        height: 56,
-        borderRadius: RADIUS.pill,
-        backgroundColor: COLORS.primaryLight,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarText: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
-
-    // Online toggle
-    onlineCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 24,
-        paddingVertical: 10,
-        paddingHorizontal: 18,
-        marginBottom: SPACING.lg,
-    },
-    statusDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.success, marginRight: 14 },
+    avatar: { width: 56, height: 56, borderRadius: RADIUS.pill, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    logo: { width: 56, height: 56, borderRadius: 28 },
+    onlineCard: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: 18, marginBottom: SPACING.lg },
+    statusDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.success },
     statusDotOffline: { backgroundColor: COLORS.disabled },
-    onlineText: { fontSize: 16, fontWeight: '600', color: COLORS.text },
-    greeting: { marginBottom: SPACING.xl },
-
-    // Stats
-    statsRow: { flexDirection: 'row', marginBottom: SPACING.xl },
-    statCard: { flex: 1, borderRadius: 20, padding: 14, marginHorizontal: 5, marginBottom: 0 },
-    statLabel: { marginBottom: SPACING.sm },
-    statValue: { fontSize: 24, lineHeight: 30, fontWeight: '800', color: COLORS.text, marginBottom: 6 },
-    statNote: { fontWeight: '600', marginBottom: 10 },
-
-    // Actions
-    actionsRow: { flexDirection: 'row', marginBottom: 28 },
-    actionButton: { flex: 1, height: 56, borderRadius: 20, marginHorizontal: 5 },
-
-    // Live orders
+    statsRow: { flexDirection: 'row', marginBottom: SPACING.xl, marginHorizontal: -5 },
+    statCard: { flex: 1, padding: 14, marginHorizontal: 5, marginBottom: 0, gap: 4 },
+    statLabel: { fontWeight: '600' },
+    statNote: { fontWeight: '600' },
+    actionsRow: { flexDirection: 'row', marginBottom: 28, gap: 10 },
+    actionButton: { flex: 1 },
     sectionRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-    sectionTitle: { fontSize: 22, lineHeight: 30, fontWeight: '800', color: COLORS.text },
-    activePill: {
-        marginLeft: SPACING.md,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: 5,
-        borderRadius: 16,
-        backgroundColor: COLORS.primaryLight,
-    },
-    activeText: { fontWeight: '600' },
-    viewAll: { fontWeight: '700' },
-
-    // Order card
-    orderCard: { flexDirection: 'row', padding: 0, borderRadius: 24, marginBottom: SPACING.lg, overflow: 'hidden' },
+    activePill: { marginLeft: SPACING.md, paddingHorizontal: SPACING.md, paddingVertical: 4, borderRadius: RADIUS.pill, backgroundColor: COLORS.primaryLight },
+    orderCard: { flexDirection: 'row', padding: 0, marginBottom: SPACING.lg, overflow: 'hidden' },
     orderStripe: { width: 6 },
     stripeNew: { backgroundColor: COLORS.primary },
     stripePreparing: { backgroundColor: COLORS.warning },
+    stripeReady: { backgroundColor: COLORS.success },
     orderBody: { flex: 1, padding: SPACING.lg },
     orderTop: { flexDirection: 'row' },
-    orderThumb: {
-        width: 56,
-        height: 56,
-        borderRadius: RADIUS.lg,
-        backgroundColor: COLORS.inputBackground,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 14,
-    },
+    orderThumb: { width: 56, height: 56, borderRadius: RADIUS.md, backgroundColor: COLORS.inputBackground, marginRight: 14 },
     orderInfo: { flex: 1 },
-    orderTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-    orderTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text },
-    pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 },
+    orderTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 },
+    orderTitle: { fontWeight: '700' },
+    pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill },
     pillNew: { backgroundColor: COLORS.primaryLight },
     pillPreparing: { backgroundColor: COLORS.warningLight },
-    pillTextNew: { fontWeight: '700', color: COLORS.primary },
-    pillTextPreparing: { fontWeight: '700', color: COLORS.warning },
+    pillReady: { backgroundColor: COLORS.successLight },
     orderMeta: { marginTop: 6 },
-    orderPrice: { fontWeight: '800', color: COLORS.text },
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.border, marginVertical: 14 },
-
-    decisionRow: { flexDirection: 'row' },
-    orderButton: { height: 48, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center' },
-    rejectButton: { flex: 1, backgroundColor: COLORS.inputBackground, marginRight: 10 },
-    rejectText: { fontSize: 16, fontWeight: '600', color: COLORS.textSecondary },
-    acceptButton: { flex: 2, backgroundColor: COLORS.primary },
-    acceptText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
-    readyButton: { backgroundColor: COLORS.successLight },
-    readyText: { fontSize: 16, fontWeight: '700', color: COLORS.success },
-
-    // Switch to customer view
-    switchCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 14, backgroundColor: COLORS.primaryLight, borderColor: COLORS.primaryLight },
-    switchIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: RADIUS.pill,
-        backgroundColor: COLORS.white,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: SPACING.md,
-    },
-    switchEmoji: { fontSize: 20 },
-    switchInfo: { flex: 1 },
-    switchTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-    switchButton: {
-        paddingHorizontal: 18,
-        paddingVertical: 8,
-        borderRadius: 14,
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.primaryLight,
-    },
-    switchButtonText: { fontWeight: '700' },
+    decisionRow: { flexDirection: 'row', gap: 10 },
+    reject: { flex: 1 },
+    accept: { flex: 2 },
+    switchCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.primaryLight, borderColor: COLORS.primaryBorder },
+    switchButton: { minHeight: 40, paddingVertical: 8 },
 });

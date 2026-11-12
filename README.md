@@ -1,178 +1,161 @@
-# FoodMind
+# FoodMind frontend
 
-A React Native food-delivery app with item-level food discovery. This repository holds **Part 1**: the complete mobile experience in plain JavaScript, with mock restaurant data, Redux Toolkit for shared state, and a local login stored in AsyncStorage.
+React Native app using Expo, React Navigation, Redux Toolkit, and AsyncStorage. The customer frontend follows the supplied 27-screen customer PDF. The partner frontend covers all 12 designs in `owner screens - Google Slides.pdf`, extending the original dashboard, manage-menu screen, and menu-item editor. The original catalog, assets, customer layouts, and cart calculations are retained.
 
-**Team:** Syed Hashim Abbas, Janasheen Haider, Muhammad Rafey Tanweer
+## Changes in this version
 
----
+- **State and storage.** One persistence layer (`src/storage/persistence.js`) replaces the four storage wrappers. Each saved key loads independently; unreadable data is copied to a `.corrupt-<time>` backup instead of being overwritten. Writes are batched and only changed slices are saved. The session (`foodmind_session_v1`) and registered accounts (`foodmind_accounts_v1`) are now saved too.
+- **Account isolation.** Carts are kept per account (`foodmind_cart_v2`) and swapped on sign-in and sign-out. Orders record the customer's email; customers see only their own orders while the partner sees all of them.
+- **Redux.** Memoized selectors (`createSelector`) for the menu, cart bill and partner orders; one `userKey` helper; `updateUser` for profile edits; order creation, demo progress and cancellation live in `redux/orderThunks.js`; rider accounts are prepared at sign-in (`redux/session.js`), not while rendering.
+- **One order lifecycle.** The customer's demo control moves orders through the same stages as the partner (accept → ready → picked up → delivered), so both portals always agree. Points are awarded when an order is delivered.
+- **Checkout.** Cart prices follow the current menu; hidden or deleted dishes are flagged and removed before ordering; ordering is blocked while the restaurant's online switch is off.
+- **UI consistency.** One colour palette (`theme/colors.js`), one type scale (`theme/typography.js`), FontAwesome icons instead of Unicode symbols, one back button, one screen frame for all roles, prices always formatted as "Rs. 1,250", and form errors shown directly above the button that triggers them.
+- **Build.** `metro.transformer.js` resolves Expo's Babel transformer for SVG support; without it Metro could not bundle the app after a clean `npm ci`.
 
-## Getting Started
+## Run on the Android Studio emulator
 
-> Complete the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide first.
+Dependencies are installed, and `android/` contains the generated native project.
 
-### 1. Install dependencies
+1. Open Android Studio's Device Manager and start a phone emulator.
+2. Open a PowerShell terminal in this project folder.
+3. Run `npm run android` for the first native build and launch. The first build downloads Android/Gradle dependencies and can take several minutes.
+4. For subsequent development sessions, start the installed FoodMind app in the emulator and run `npm start`. Press `a` in the Expo terminal to connect Android.
 
-```sh
-npm install
-```
+You can also open the `android/` folder in Android Studio and run its `app` configuration while `npm start` is running.
 
-If you are setting up a fresh project, these are the packages the app uses:
+On Windows, `npm run android` automatically prepares a checksum-verified, project-local Ninja 1.13.2 copy. This handles the [native library's documented Windows path limitations](https://docs.swmansion.com/react-native-reanimated/docs/guides/building-on-windows/). The global Android SDK tools are unchanged. If `tmp/` is cleared, run `npm run android:setup` before building directly in Android Studio. The local Expo config plugin preserves the build settings when native projects are regenerated.
 
-```sh
-npm i @react-navigation/native @react-navigation/native-stack @react-navigation/bottom-tabs
-npm i react-native-screens react-native-safe-area-context
-npm i @reduxjs/toolkit react-redux @react-native-async-storage/async-storage
-```
+The project uses Expo SDK 58, React Native 0.88, and React 19.3. The installed Node 26 is supported by this SDK. Android SDK and Java are supplied by your existing Android Studio setup. See the official [Expo Android emulator guide](https://docs.expo.dev/workflow/android-studio-emulator/) for emulator setup.
 
-### 2. Start Metro
+For an optional browser preview, use `npm run web`.
 
-From the project root:
-
-```sh
-npx react-native start
-```
-
-### 3. Run the app
-
-In a second terminal, from the project root:
-
-```sh
-# Android
-npm run android
-
-# iOS (first time, or after changing native dependencies)
-bundle install
-bundle exec pod install
-npm run ios
-```
-
-Saving a file reloads the app automatically (Fast Refresh). To force a full reload, press **R** twice on Android, or **R** in the iOS Simulator.
-
-Having trouble? See the [React Native troubleshooting page](https://reactnative.dev/docs/troubleshooting).
-
-### Demo accounts
+## Demo accounts
 
 | Role | Email | Password |
-|---|---|---|
-| Customer | `demo@foodmind.app` | `demo123` |
-| Restaurant owner | `owner@foodmind.app` | `owner123` |
+| --- | --- | --- |
+| Customer | `demo@food.com` | `123456` |
+| Restaurant partner | `partner@food.com` | `123456` |
+| Rider | `rider@food.com` | `123456` |
 
-These are created on first launch. Registering a new account always creates a customer.
+Registration and sign-in keep the local account implementation. All three roles use the same Sign In screen; the role on the account opens its matching area after sign-in. New registrations and the signed-in session are saved on the device, so they survive an app restart. Saved profile details are restored after signing back in with the same email.
 
----
+The demo partner opens the dashboard directly. **Store > Restaurant registration & status** opens its registration flow. A newly registered partner starts with restaurant registration after signing in.
 
-## Project Structure
+## Customer screen coverage
 
-Everything we write lives in `src/`. `App.js` stays at the project root.
+| PDF # | Screen | Implementation / entry point |
+| --- | --- | --- |
+| 01 | Splash | Existing onboarding |
+| 02 | Login | Existing sign-in |
+| 03 | Sign Up | Existing registration |
+| 04 | Home | Existing Home tab |
+| 05 | Search Results | Existing Search tab; natural-language budget filters added |
+| 06 | No Match | New empty-result design in Search; also a registered screen |
+| 07 | AI Assistant | Existing layout; prompt, chips, clear, preferences, and results wired |
+| 08 | AI Recommendations | New; Find My Food in AI Assistant |
+| 09 | Compare Dishes | New; Compare Dishes in recommendations |
+| 10 | Restaurant | Existing restaurant page |
+| 11 | Dish Details | Existing dish page |
+| 12 | Cart | Cart bottom tab; existing cart and pricing |
+| 13 | Checkout | Existing checkout; routes to confirmation after placing an order |
+| 14 | Order Placed | New; successful checkout |
+| 15 | Track Order | New; confirmation or My Orders |
+| 16 | My Orders | Profile > My Orders; tracking, details, and help links |
+| 17 | Order Details | New; View Details or past-order restaurant title |
+| 18 | Rate Your Order | New; delivered order details or tracking |
+| 19 | Points & Rewards | New; Profile > Points & Rewards |
+| 20 | Community Delivery | New; Profile > Community Delivery |
+| 21 | Rider Offers | New; submit a community pickup request |
+| 22 | Delivery in Progress | New; select a rider offer |
+| 23 | Profile | Profile bottom tab; account and activity destinations |
+| 24 | Edit Profile | New; pencil on profile avatar |
+| 25 | Saved Addresses | Existing address book with add, edit, select, and remove |
+| 26 | My Reviews | New; Profile > My Reviews & Ratings |
+| 27 | Help & Support | New; Profile > Help & Customer Care or order support |
 
+## Partner screen coverage
+
+| PDF # | Screen | Implementation / entry point |
+| --- | --- | --- |
+| 01 | Register your restaurant | New partner sign-in, or Store > Restaurant registration & status |
+| 02 | Documents & photos | Continue from registration; select license, CNIC, logo, and optional gallery photos |
+| 03 | Under Review | Submit documents; edit the application or explicitly preview demo approval |
+| 04 | Dashboard | Existing layout connected to saved store details, online toggle, menu, and orders |
+| 05 | Manage Menu | Existing layout with search, categories, availability, bestseller labels, and item editing |
+| 06 | Edit Item | Existing editor extended with local photo selection, availability, bestseller flag, customization notes, and deletion confirmation |
+| 07 | New Order | Open a new order from Overview or Orders; select preparation time, accept, or reject |
+| 08 | Preparing Order | Accept an order; view its timer and mark it ready |
+| 09 | Update Status | Ready for pickup; delay pickup, preview rider contact details, or mark picked up |
+| 10 | Reviews & Ratings | Reviews tab; rating distribution and star filters |
+| 11 | Store profile | Store tab; profile, hours, documents, registration status, customer preview, and logout |
+| 12 | Edit Restaurant profile | Edit from Store; save contact details, hours, cuisines, cover, and logo |
+
+The five main partner tabs are **Overview, Menu, Orders, Reviews, Store**. The additional Orders list connects the order screens and filters New, Preparing, Ready, and Completed orders. All new screens have back navigation and handle missing order data.
+
+## Rider screen coverage
+
+| PDF # | Screen | Implementation / entry point |
+| --- | --- | --- |
+| 01 | Welcome | Splash > Become a Rider |
+| 02 | Login | Shared Sign In screen for all account roles |
+| 03 | Rider registration | Register with the Rider role |
+| 04 | Upload documents | Continue from rider registration; files stay on-device |
+| 05 | Under review | Submit the rider application; use the explicit demo approval to preview |
+| 06 | Nearby requests | Jobs tab; availability toggle and request filters |
+| 07–09 | Request details, submit bid, bid submitted | Select a request and set the delivery amount and ETA |
+| 10–11 | My bids, accept/reject selection | Bids tab; use the clearly marked selection preview to explore |
+| 12–18 | Active delivery, pickup, OTP, customer route, status, proof, completed | Accept a selected bid and advance through the local delivery flow; pickup demo code is `8421` |
+| 19 | Earnings | Earnings tab; demo account figures are marked as examples |
+| 20–21 | Delivery history, rate delivery | Earnings > Delivery History; completed deliveries open the rating view |
+| 22–24 | Rider profile, edit profile, documents & vehicle | Profile tab and its account options |
+
+Rider tabs are **Jobs, Bids, Earnings, Profile**. Detailed job, onboarding, and edit screens use native stack navigation. The rider demo account opens directly to the approved preview.
+
+## Navigation
+
+All roles use [`@react-navigation/bottom-tabs`](https://reactnavigation.org/docs/bottom-tab-navigator/) with native stacks for detail screens. Customer tabs are **Home, Search, Cart, Profile**; **Profile > My Orders** opens order history. Each customer tab retains its own detail history, and add-to-cart/reorder actions return to the Cart tab's contents. Checkout resets only the Cart stack after placing an order.
+
+Partner tabs own the main portal screens and the preparation workflow. Registration, document forms, order review/status, editors, and customer preview open in the parent stack, preserving their existing tab-bar visibility. Tab switching uses the navigator's built-in press, focus, accessibility, safe-area, and Android back behavior.
+
+## Try the complete flows
+
+- **Ordering:** sign in as customer, add a saved address, browse a dish, add it to cart, check out, and place an order. Use Track My Order to view its status.
+- **Tracking and reviews:** the explicit `Demo:` button advances a saved order through preparation, dispatch, and delivery. After delivery, rate the order. One completion earns 20 points; its first review earns another 20. Editing a review cannot earn the reward twice.
+- **Comparison:** Home > FoodMind AI, choose the creamy pasta sample or type a request, then Find My Food. Open Compare Dishes, change either dish if desired, and add the preferred dish to the existing cart.
+- **No match:** search for `Vegan sushi under Rs. 300`. Reset Filters or continue into AI Assistant.
+- **Community delivery:** enter any shop name, pickup address, item names, quantities, estimated unit prices, and delivery address. Compare sample rider offers, choose one, and step through the demo delivery. Saved requests can be resumed from Community Delivery.
+- **Profile/support:** edit your name, phone, location, and photo; inspect reviews and points; search/expand help articles; save a support report locally.
+- **Partner registration:** sign in as partner, open Store > Restaurant registration & status, complete the business details, select the three required files from your device, and submit. Under Review has an explicit **Preview approved dashboard (demo)** action for exploring the remaining screens.
+- **Partner orders:** use the sample-order button on Overview or Orders, then open a new order, choose preparation time, accept it, mark it ready, and mark it picked up. Sample orders stay separate from customer orders. Orders placed by a customer on this device also appear in the partner portal; partner actions update their existing customer tracking statuses. Rider assignment for actual customer orders awaits the backend.
+- **Partner menu:** add or edit a dish, choose a photo, toggle availability, or confirm deletion. Name, price, availability, deletion, and photos feed the shared customer menu. The original bundled catalog files stay intact.
+- **Partner profile/reviews:** edit the store cover, logo, business contacts, hours, and cuisines. Reviews shows actual locally submitted customer feedback when available, or clearly labeled examples. **Customer Experience** previews the customer screens with a return link to the partner portal and keeps the signed-in role.
+- **Rider onboarding:** sign in with the rider demo account, or register with the Rider role and use the same Sign In screen. For a new account, complete local document selection and choose **Preview approval · demo** to open the rider tabs.
+- **Rider delivery:** choose a nearby request, submit a bid, open **Preview customer selection · demo** in My Bids, and accept. Follow the pickup and customer steps, enter the sample pickup code `8421`, optionally choose a proof photo, and confirm delivery. The delivery then appears in Earnings history.
+
+## Frontend-only boundaries
+
+No backend, real AI, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. Recommendations use deterministic matching against the existing available menu. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
+
+Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Voice input, password changes, and rider calls show frontend availability messages.
+
+Partner profiles, document references, gallery photos, application status, online status, and sample orders use `foodmind_partner_features_v1`, separated by sign-in email. Selected files are copied into local app storage; nothing is uploaded. Approval, rider contact, customer notifications, and sample rider assignment are frontend previews. Existing cart, orders, menu, address, and customer storage keys are preserved.
+
+Rider profiles, documents, application status, online status, bids, delivery progress, ratings, proof photos, and history use `foodmind_rider_features_v1`, separated by sign-in email. Selected files and photos stay on the device. The customer, partner, and rider data use separate storage keys.
+
+Store contact details are separate from the sign-in account. Store metadata stays in the partner preview; publishing a restaurant to a server is deferred. Advanced item customization notes are saved as partner metadata; the existing customer customization controls are unchanged. The online toggle persists locally and does not enforce backend order acceptance.
+
+## Verification
+
+```powershell
+npm run check
+npm test
+npx expo export --platform android --output-dir tmp/android-export
 ```
-src/
-├── components/    Shared UI pieces (Button, Card, RatingBadge)
-├── screens/       Screens, grouped by role
-│   ├── auth/        Splash, Login, Register
-│   ├── customer/    Home, Search, Orders, Profile, Restaurant, Dish, Cart, Checkout
-│   └── restaurant/  Dashboard, Manage Menu
-├── navigation/    Navigators and route names
-├── theme/         Colors, spacing, font sizes
-├── data/          Mock restaurants, menu items, orders
-├── state/         Redux Toolkit store, slices, and hooks
-├── auth/          Register, login, logout, restore session (logic only)
-└── utils/         Helpers: price formatting, validation, search matching
-```
 
-| Folder | What belongs there |
-|---|---|
-| `components` | Any UI piece used by more than one screen. Props in, UI out |
-| `screens/<role>` | One flat file per screen, named `<Name>Screen.js`, plus that role's `index.js` |
-| `navigation` | The only place that knows the app flow. Route names live here |
-| `theme` | The only place for colors, spacing and font sizes |
-| `data` | What the app *knows* (menu, restaurants, orders) |
-| `state` | What the user is *doing* (cart, who is logged in) |
-| `auth` | The logic for registering and logging in. No UI |
-| `utils` | Small pure functions with no UI |
+The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, AI-to-cart navigation, checkout validation/confirmation, review submission, rider selection, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.
 
-### App flow
+The current version is checked with **156 automated tests**, the source check (130 JavaScript files), and Android (Hermes) and web exports. The tests cover per-account cart and order isolation, checkout validation against the live menu and restaurant availability, safe storage loading (a damaged entry is backed up and never wipes the rest), session restore, one shared order lifecycle for customer and partner, rider onboarding and rating fixes, and a scan of all 65 screens for stray "\n" or "/n" text.
 
-The session decides which group of screens is shown:
+The dependency audit currently reports inherited Expo CLI advisories involving `node-forge` and Zod. Its suggested forced Expo downgrade is incompatible with this SDK and was not applied. This is a local frontend prototype; dependency review is still needed before production deployment.
 
-- **Logged out:** Splash, Login, Register
-- **Customer:** four tabs (Home, Search, Orders, Profile), plus Restaurant Detail, Dish Detail, Cart, Checkout
-- **Restaurant owner:** Dashboard, Manage Menu
-
-### Who may import whom
-
-| Layer | May use | Must not use |
-|---|---|---|
-| `screens` | components, theme, utils, data, route names, and the hooks in `state/hooks.js` | `auth` or Redux directly, or another role's screens |
-| `navigation` | `state/hooks.js` (to read the role), screens | `auth` directly |
-| `state` | `auth`, data, utils | screens |
-| `auth` | utils, AsyncStorage | screens, `state` |
-| `components` | theme, utils | `state`, data, screens |
-| `data`, `theme`, `utils` | nothing from the app | everything else |
-
-### State and login
-
-Redux Toolkit holds state that several screens share:
-
-- **Session slice:** the current user, role, and loading status
-- **Cart slice:** the items in the cart (in memory only)
-
-Screens never import Redux. They use two hooks from `state/hooks.js`: `useSession()` and `useCart()`. Form text, search text and selected chips stay in `useState` inside their screens.
-
-**Users live in AsyncStorage, not Redux.** `auth/` saves the user list and the current session there, so a login survives an app restart. Redux holds only a copy of the current user for screens to read.
-
-How a login travels:
-
-1. The Login screen validates the input and calls `login` from `useSession()`.
-2. The session slice runs an async action that calls `auth.login`.
-3. `auth` checks the saved users and saves the session in AsyncStorage.
-4. The slice stores the user and role.
-5. The root navigator sees the new role and switches to the right group.
-
-On app start, the session asks `auth` to restore the saved session, and a Splash screen shows until it answers.
-
-> Passwords are stored as plain text because this is a Part 1 demo. Part 2's backend must hash them.
-
----
-
-## Conventions
-
-- **One flat file per screen,** named `<Name>Screen.js`, inside its role folder.
-- **Role folders do not import each other.** If two roles need the same piece, move it to `components`.
-- **Reusable means `components`.** A piece used by two or more screens goes there.
-- **One source for style.** Take colors and spacing from `theme`. No hard-coded values in screens.
-- **One source for routes.** Take route names from `navigation/routes.js`. Never type them by hand.
-- **Data comes from `data` only.** Do not copy mock values into screens.
-- **Money:** prices are whole numbers in Rs., formatted only when displayed.
-- **IDs** are strings.
-- **Keep it simple.** If a feature is not in the proposal, leave it out.
-
-## Adding a Screen
-
-1. Create `screens/<role>/<Name>Screen.js` (role is `auth`, `customer` or `restaurant`).
-2. In that role folder's `index.js`, replace the placeholder line with your real export.
-3. Make sure the route name exists in `navigation/routes.js` and is registered in the matching navigator.
-4. Run the app and walk to your screen.
-
-Screens that are not built yet show a placeholder reading "<Name> Screen", so the full flow can be tapped through at any time.
-
-## Git Workflow
-
-- Work on your own branch, named `feature/<name>-<task>`.
-- Edit only your own screen files. Before changing shared files (`theme`, `navigation`, `components`, `state`, `auth`), tell the team.
-- Pull `main` before you start and before you open a merge request.
-- Do not commit secrets or keys.
-
----
-
-## Scope
-
-**Part 1 (this repo):** browsing, search and filters, restaurant and dish details, cart, checkout (simulated), orders (local), login and session, restaurant dashboard and menu management (local).
-
-**Part 2 (later):** a real backend, persistent data, reviews, and AI-assisted food search.
-
-## Learn More
-
-- [React Native documentation](https://reactnative.dev/docs/getting-started)
-- [React Navigation](https://reactnavigation.org)
-- [Redux Toolkit](https://redux-toolkit.js.org)
+`tmp/baseline/src` and `tmp/baseline/hashes.json` preserve the original source before the customer work. `tmp/partner-baseline/src` and its `hashes.json` preserve the completed customer frontend before the partner work. `tmp/navigation-baseline/src` preserves the source before the bottom-tab update. These local verification files are ignored by Git.
