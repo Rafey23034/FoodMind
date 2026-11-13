@@ -10,4 +10,5 @@ android/build/
 *.log
 .env
 .env.*
+server/.env
 android/.gradle-home/

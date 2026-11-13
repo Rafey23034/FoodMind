@@ -11,6 +11,7 @@
     "android:build": "expo run:android",
     "android:setup": "node scripts/setup-android.cjs",
     "web": "expo start --web",
+    "ai:server": "node --env-file=server/.env server/index.js",
     "test": "jest --runInBand",
     "check": "node scripts/check-source.cjs"
   },

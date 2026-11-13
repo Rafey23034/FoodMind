@@ -1,5 +1,5 @@
 import { openCart, resetSearch } from '../../navigation/customerNavigation';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import AppText from '../../components/AppText';
@@ -15,19 +15,52 @@ import { matchDishes } from '../../data/discovery';
 import { getFoodPhoto } from '../../data/foodPhotos';
 import { COLORS } from '../../theme/colors';
 import { routes } from '../../navigation/routes';
+import { requestAIRecommendations } from '../../services/aiRecommendations';
+
+const EMPTY_PREFERENCES = [];
 
 export default function AIRecommendationsScreen({ navigation, route }) {
   const dispatch = useDispatch();
   const menuItems = useSelector(selectAvailableItems);
   const prompt = route.params?.prompt || 'Creamy chicken pasta under Rs. 1,200';
-  const matches = matchDishes(menuItems, prompt, route.params?.preferences || []);
+  const preferences = route.params?.preferences || EMPTY_PREFERENCES;
+  const [matches, setMatches] = useState(() => matchDishes(menuItems, prompt, preferences));
+  const [loading, setLoading] = useState(true);
+  const [aiNotice, setAiNotice] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setAiNotice('');
+    setMatches(matchDishes(menuItems, prompt, preferences));
+    // The server returns IDs only; mapping them back to this menu prevents AI-created dishes.
+    requestAIRecommendations({ prompt, preferences, menu: menuItems })
+      .then(recommendations => {
+        if (!active) return;
+        const byId = new Map(menuItems.map(item => [item.id, item]));
+        const aiMatches = recommendations.map(item => {
+          const dish = byId.get(item.dishId);
+          return dish ? { ...dish, aiReason: item.reason } : null;
+        }).filter(Boolean);
+        if (aiMatches.length) setMatches(aiMatches);
+        else setAiNotice('No AI matches were returned. Showing menu matches instead.');
+      })
+      .catch(() => {
+        if (active) setAiNotice('FoodMind AI is unavailable. Showing menu matches instead.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [prompt, preferences, menuItems]);
+
   const top = matches[0];
   const photo = getFoodPhoto(top);
   function add(dish) {
     dispatch(addItem(makeCartItem(dish)));
     openCart(navigation);
   }
-  return <ScreenLayout navigation={navigation} title="AI Recommendations" subtitle="Preview matches from your demo menu">
+  return <ScreenLayout navigation={navigation} title="AI Recommendations" subtitle={loading ? 'Finding your best matches...' : 'AI-powered menu recommendations'}>
+    {loading ? <Notice icon="ai" title="FoodMind AI is thinking">Checking your request against the current menu.</Notice> : null}
+    {aiNotice ? <Notice icon="info" title="Using local matching">{aiNotice}</Notice> : null}
     {!top ? <NoMatchContent query={prompt} onReset={() => resetSearch(navigation)}
       onAskAI={() => navigation.navigate(routes.AI, { prompt })} /> : <>
       <Notice icon="ai" title="Best matches for">“{prompt}”</Notice>
@@ -41,7 +74,7 @@ export default function AIRecommendationsScreen({ navigation, route }) {
           <View style={ui.between}><AppText variant="subheading" style={ui.flex}>{top.name}</AppText><AppText color={COLORS.warning} style={ui.bold}>★ {ratingLabel(top)}</AppText></View>
           <AppText variant="small" color={COLORS.textSecondary}>{restaurant.name}</AppText>
           <AppText variant="heading" color={COLORS.primary}>{formatPrice(top.price)}</AppText>
-          <Notice icon="check" title="Why this matches">{`${top.tags.join(' · ')}. Price and rating come from the current menu.`}</Notice>
+          <Notice icon="check" title="Why this matches">{top.aiReason || `${top.tags.join(' · ')}. Price and rating come from the current menu.`}</Notice>
           <AppButton title="+  Add to Cart" onPress={() => add(top)} />
           {matches.length > 1 ? <AppButton title="Compare Dishes" icon="swap" variant="outline"
             onPress={() => navigation.navigate(routes.COMPARE_DISHES, { dishIds: [top.id, matches[1].id] })} /> : null}

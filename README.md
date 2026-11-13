@@ -132,9 +132,21 @@ Partner tabs own the main portal screens and the preparation workflow. Registrat
 - **Rider onboarding:** sign in with the rider demo account, or register with the Rider role and use the same Sign In screen. For a new account, complete local document selection and choose **Preview approval · demo** to open the rider tabs.
 - **Rider delivery:** choose a nearby request, submit a bid, open **Preview customer selection · demo** in My Bids, and accept. Follow the pickup and customer steps, enter the sample pickup code `8421`, optionally choose a proof photo, and confirm delivery. The delivery then appears in Earnings history.
 
+## AI recommendation service
+
+FoodMind AI now sends recommendation requests to a local server, which calls Vercel AI Gateway with `openai/gpt-5-mini`. The mobile app never receives the gateway key. To run it locally:
+
+```powershell
+Copy-Item server/.env.example server/.env
+# Add your AI_GATEWAY_API_KEY to server/.env
+npm run ai:server
+```
+
+For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this server before starting Expo. If the server cannot be reached, the app deliberately falls back to its existing local menu matcher. The server validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
+
 ## Frontend-only boundaries
 
-No backend, real AI, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. Recommendations use deterministic matching against the existing available menu. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
+No production backend, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. The local AI recommendation service is the exception: it calls Vercel AI Gateway when configured, and falls back to deterministic matching against the existing available menu if unavailable. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
 
 Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Voice input, password changes, and rider calls show frontend availability messages.
 
