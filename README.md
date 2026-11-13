@@ -1,6 +1,19 @@
-# FoodMind frontend
+# FoodMind
 
-React Native app using Expo, React Navigation, Redux Toolkit, and AsyncStorage. The customer frontend follows the supplied 27-screen customer PDF. The partner frontend covers all 12 designs in `owner screens - Google Slides.pdf`, extending the original dashboard, manage-menu screen, and menu-item editor. The original catalog, assets, customer layouts, and cart calculations are retained.
+React Native app using Expo, React Navigation, Redux Toolkit, and AsyncStorage, with a small Node AI service and a MySQL database design. The customer frontend follows the supplied 27-screen customer PDF. The partner frontend covers all 12 designs in `owner screens - Google Slides.pdf`, extending the original dashboard, manage-menu screen, and menu-item editor. The original catalog, assets, customer layouts, and cart calculations are retained.
+
+## Repository layout
+
+```text
+FoodMind/
+  apps/
+    mobile/   Expo app (source, native projects, tests, build scripts)
+    api/      Node HTTP service for AI recommendations
+  database/   MySQL schema, seed data, ERDs, and schema tests
+  package.json
+```
+
+All commands in this README run from the repository root unless stated otherwise. Mobile source paths such as `src/`, `android/`, and `tmp/` are relative to `apps/mobile/`.
 
 ## Changes in this version
 
@@ -21,9 +34,9 @@ Dependencies are installed, and `android/` contains the generated native project
 3. Run `npm run android` for the first native build and launch. The first build downloads Android/Gradle dependencies and can take several minutes.
 4. For subsequent development sessions, start the installed FoodMind app in the emulator and run `npm start`. Press `a` in the Expo terminal to connect Android.
 
-You can also open the `android/` folder in Android Studio and run its `app` configuration while `npm start` is running.
+You can also open the `apps/mobile/android/` folder in Android Studio and run its `app` configuration while `npm start` is running.
 
-On Windows, `npm run android` automatically prepares a checksum-verified, project-local Ninja 1.13.2 copy. This handles the [native library's documented Windows path limitations](https://docs.swmansion.com/react-native-reanimated/docs/guides/building-on-windows/). The global Android SDK tools are unchanged. If `tmp/` is cleared, run `npm run android:setup` before building directly in Android Studio. The local Expo config plugin preserves the build settings when native projects are regenerated.
+On Windows, `npm run android` automatically prepares a checksum-verified, project-local Ninja 1.13.2 copy. This handles the [native library's documented Windows path limitations](https://docs.swmansion.com/react-native-reanimated/docs/guides/building-on-windows/). The global Android SDK tools are unchanged. If `apps/mobile/tmp/` is cleared, run `npm run android:setup` before building directly in Android Studio. The local Expo config plugin preserves the build settings when native projects are regenerated.
 
 The project uses Expo SDK 58, React Native 0.88, and React 19.3. The installed Node 26 is supported by this SDK. Android SDK and Java are supplied by your existing Android Studio setup. See the official [Expo Android emulator guide](https://docs.expo.dev/workflow/android-studio-emulator/) for emulator setup.
 
@@ -134,19 +147,19 @@ Partner tabs own the main portal screens and the preparation workflow. Registrat
 
 ## AI recommendation service
 
-FoodMind AI now sends recommendation requests to a local server, which calls Vercel AI Gateway with `openai/gpt-5-mini`. The mobile app never receives the gateway key. To run it locally:
+FoodMind AI sends recommendation requests to the local Node service in `apps/api/`, which calls Gemini. The mobile app never receives the Gemini key. To run it locally:
 
 ```powershell
-Copy-Item server/.env.example server/.env
-# Add your AI_GATEWAY_API_KEY to server/.env
-npm run ai:server
+Copy-Item apps/api/.env.example apps/api/.env
+# Add your GEMINI_API_KEY to apps/api/.env
+npm run api
 ```
 
-For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this server before starting Expo. If the server cannot be reached, the app deliberately falls back to its existing local menu matcher. The server validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
+For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this service before starting Expo. If the service cannot be reached, the app deliberately falls back to its existing local menu matcher. The service validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
 
 ## Frontend-only boundaries
 
-No production backend, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. The local AI recommendation service is the exception: it calls Vercel AI Gateway when configured, and falls back to deterministic matching against the existing available menu if unavailable. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
+No production backend, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. The local AI recommendation service is the exception: it calls Gemini when configured, and falls back to deterministic matching against the existing available menu if unavailable. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
 
 Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Voice input, password changes, and rider calls show frontend availability messages.
 
@@ -161,7 +174,9 @@ Store contact details are separate from the sign-in account. Store metadata stay
 ```powershell
 npm run check
 npm test
+Push-Location apps/mobile
 npx expo export --platform android --output-dir tmp/android-export
+Pop-Location
 ```
 
 The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, AI-to-cart navigation, checkout validation/confirmation, review submission, rider selection, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.

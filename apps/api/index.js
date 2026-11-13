@@ -69,7 +69,7 @@ async function getRecommendations(menu, preferences) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is missing from server/.env');
+    throw new Error('GEMINI_API_KEY is missing. Add it to apps/api/.env or set it in the environment.');
   }
 
   const instruction = `
