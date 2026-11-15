@@ -9,26 +9,21 @@ import cartReducer, { addItem } from '../src/redux/cartSlice';
 import ordersReducer, { placeOrder } from '../src/redux/ordersSlice';
 import addressesReducer, { saveAddress } from '../src/redux/addressesSlice';
 import menuReducer from '../src/redux/menuSlice';
-import customerReducer, { saveDelivery, selectPoints } from '../src/redux/customerSlice';
+import customerReducer, { selectPoints } from '../src/redux/customerSlice';
 import { dishes, makeCartItem } from '../src/data/catalog';
-import { riderOffers } from '../src/data/riderOffers';
 import { routes } from '../src/navigation/routes';
 import AIScreen from '../src/screens/customer/AIScreen';
 import * as apiConfig from '../src/services/api';
 import CheckoutScreen from '../src/screens/customer/CheckoutScreen';
 import RateOrderScreen from '../src/screens/customer/RateOrderScreen';
-import RiderOffersScreen from '../src/screens/customer/RiderOffersScreen';
-import CommunityDeliveryScreen from '../src/screens/customer/CommunityDeliveryScreen';
 
 afterEach(() => jest.restoreAllMocks());
 
 const order = { id: 'FM123', customerEmail: 'demo@food.com', restaurant: 'Urban Bites', status: 'Delivered', items: [makeCartItem(dishes[0])], total: 1250, payment: 'cash', address: 'Demo Street, Lahore', createdAt: '2026-10-25T00:00:00.000Z' };
-const delivery = { id: 'CD123', shop: 'Demo Shop', location: 'Pickup Street', address: 'Demo Street', items: [{ id: 'one', name: 'Biryani', price: 550, quantity: 2 }], status: 'Heading to shop', rider: riderOffers[0] };
 function setupStore() {
   const store = configureStore({ reducer: { auth: authReducer, cart: cartReducer, orders: ordersReducer, addresses: addressesReducer, menu: menuReducer, customer: customerReducer } });
   store.dispatch(login({ name: 'Demo Customer', email: 'demo@food.com', role: 'customer' }));
   store.dispatch(placeOrder(order));
-  store.dispatch(saveDelivery({ userKey: 'demo@food.com', delivery }));
   return store;
 }
 function nav() { return { navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn(), reset: jest.fn() }; }
@@ -48,16 +43,15 @@ async function cleanup(tree) { await act(async () => tree.unmount()); }
 
 test.each([
   'NoMatchScreen', 'AIScreen', 'CompareDishesScreen', 'OrderPlacedScreen', 'TrackOrderScreen',
-  'OrderDetailsScreen', 'RateOrderScreen', 'RewardsScreen', 'CommunityDeliveryScreen', 'RiderOffersScreen',
-  'DeliveryProgressScreen', 'EditProfileScreen', 'MyReviewsScreen', 'HelpSupportScreen',
+  'OrderDetailsScreen', 'RateOrderScreen', 'RewardsScreen', 'EditProfileScreen', 'MyReviewsScreen', 'HelpSupportScreen',
 ])('%s renders with saved frontend data', async name => {
   const Screen = require(`../src/screens/customer/${name}`).default;
-  const { tree } = await mount(Screen, setupStore(), { orderId: order.id, deliveryId: delivery.id });
+  const { tree } = await mount(Screen, setupStore(), { orderId: order.id });
   expect(tree.toJSON()).toBeTruthy();
   await cleanup(tree);
 });
 
-test.each(['OrderPlacedScreen', 'TrackOrderScreen', 'OrderDetailsScreen', 'RateOrderScreen', 'RiderOffersScreen', 'DeliveryProgressScreen'])('%s handles missing route data safely', async name => {
+test.each(['OrderPlacedScreen', 'TrackOrderScreen', 'OrderDetailsScreen', 'RateOrderScreen'])('%s handles missing route data safely', async name => {
   const Screen = require(`../src/screens/customer/${name}`).default;
   const { tree } = await mount(Screen);
   expect(tree.toJSON()).toBeTruthy();
@@ -142,19 +136,6 @@ test('Ask AI from search sends its request into the chat once', async () => {
   await cleanup(tree);
 });
 
-test('a community delivery address can be cleared and validated after prefilling', async () => {
-  const store = setupStore();
-  store.dispatch(saveAddress({ userKey: 'demo@food.com', address: { id: 'home', label: 'Home', street: 'Demo Street', city: 'Lahore' } }));
-  const { tree, navigation } = await mount(CommunityDeliveryScreen, store);
-  const input = () => tree.root.findAllByType(TextInput).find(element => element.props.placeholder === 'House, street, area, city');
-  expect(input().props.value).toBe('Demo Street, Lahore');
-  await act(async () => input().props.onChangeText(''));
-  expect(input().props.value).toBe('');
-  await press(tree, 'Send Request to Nearby Riders →');
-  expect(navigation.navigate).not.toHaveBeenCalled();
-  await cleanup(tree);
-});
-
 test('checkout validates its address and routes a saved order to confirmation', async () => {
   const store = setupStore();
   store.dispatch(addItem(makeCartItem(dishes[0])));
@@ -179,15 +160,5 @@ test('rating submission saves a review and awards 20 points', async () => {
   expect(store.getState().customer.byUser['demo@food.com'].reviews[0].rating).toBe(5);
   expect(selectPoints(store.getState())).toBe(20);
   expect(navigation.replace).toHaveBeenCalledWith(routes.MY_REVIEWS);
-  await cleanup(tree);
-});
-
-test('selecting a rider connects the offer to the delivery progress route', async () => {
-  const store = setupStore();
-  store.dispatch(saveDelivery({ userKey: 'demo@food.com', delivery: { ...delivery, rider: null, status: 'Requested' } }));
-  const { tree, navigation } = await mount(RiderOffersScreen, store, { deliveryId: delivery.id });
-  await press(tree, 'Select rider');
-  expect(store.getState().customer.byUser['demo@food.com'].deliveries[0].rider.id).toBe('rider-c');
-  expect(navigation.replace).toHaveBeenCalledWith(routes.DELIVERY_PROGRESS, { deliveryId: delivery.id });
   await cleanup(tree);
 });

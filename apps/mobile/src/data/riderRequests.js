@@ -42,7 +42,7 @@ export function demoRiderAccount(user, at = new Date().toISOString()) {
     } : {},
     application: { status: demo ? 'Approved' : 'Draft', submittedAt: demo ? at : null, demoApproval: demo },
     online: demo,
-    bids: [], activeDelivery: null,
+    declinedRequests: [], activeDelivery: null,
     deliveries: demo ? [
       { id: 'DEMO-DEL-240', requestId: 'RDR-1042', restaurant: 'Urban Bites', customer: 'Ayesha K. · Model Town', customerAddress: 'Model Town, Lahore', distanceKm: 3.2, earnings: 240, completedAt: day(0), status: 'Delivered', rating: 5, isDemo: true },
       { id: 'DEMO-DEL-239', requestId: 'RDR-1043', restaurant: 'Bella Kitchen', customer: 'Omar · Gulberg', customerAddress: 'Gulberg III, Lahore', distanceKm: 2.8, earnings: 320, completedAt: day(1), status: 'Delivered', rating: 5, isDemo: true },

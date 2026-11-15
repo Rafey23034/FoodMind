@@ -6,7 +6,7 @@ import AppText from '../../components/AppText';
 import Header from '../../components/Header';
 import Icon from '../../components/Icon';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faLocationDot, faStar, faGear, faRightFromBracket, faPen, faChevronRight, faBagShopping, faGift, faMotorcycle, faHeadset } from '@fortawesome/free-solid-svg-icons';
+import { faLocationDot, faStar, faGear, faRightFromBracket, faPen, faChevronRight, faBagShopping, faGift, faHeadset } from '@fortawesome/free-solid-svg-icons';
 import { selectCustomer, selectPoints } from '../../redux/customerSlice';
 import { selectMyOrders } from '../../redux/ordersSlice';
 import { useCustomerPreview } from '../../navigation/PreviewContext';
@@ -23,7 +23,6 @@ function sectionsFor(preview) {
     { title: 'ACTIVITY & REWARDS', data: [
       { id: 'reviews', icon: faStar, label: 'My Reviews & Ratings' },
       { id: 'rewards', icon: faGift, label: 'Points & Rewards' },
-      { id: 'community', icon: faMotorcycle, label: 'Community Delivery' },
     ] },
     { title: 'SUPPORT & APP', data: [
       { id: 'help', icon: faHeadset, label: 'Help & Customer Care' },

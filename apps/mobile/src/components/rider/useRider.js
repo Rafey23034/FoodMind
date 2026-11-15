@@ -14,7 +14,6 @@ export default function useRider() {
     profile: { ...initial.profile, ...saved.profile },
     documents: { ...initial.documents, ...saved.documents },
     application: { ...initial.application, ...saved.application },
-    bids: saved.bids?.length ? saved.bids : initial.bids,
     deliveries: saved.deliveries?.length ? saved.deliveries : initial.deliveries,
     userKey,
   }), [initial, saved, userKey]);

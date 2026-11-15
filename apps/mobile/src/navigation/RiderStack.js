@@ -1,15 +1,16 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { routes } from './routes';
 import useRider from '../components/rider/useRider';
 import RiderTabs from '../components/rider/RiderTabs';
+import useRiderRealtime, { RiderLiveContext } from '../components/rider/useRiderRealtime';
 import {
   RiderRegistrationScreen, RiderDocumentsScreen, RiderUnderReviewScreen,
   RiderEditProfileScreen, RiderDocumentsVehicleScreen,
 } from '../screens/rider/RiderRegistrationScreens';
 import {
-  RiderJobsScreen, RiderRequestDetailsScreen, RiderSubmitBidScreen, RiderBidSubmittedScreen,
-  RiderBidsScreen, RiderJobDecisionScreen, RiderEarningsScreen, RiderHistoryScreen,
+  RiderJobsScreen, RiderRequestDetailsScreen, RiderEarningsScreen, RiderHistoryScreen,
   RiderRateScreen, RiderProfileScreen,
 } from '../screens/rider/RiderWorkScreens';
 import {
@@ -20,7 +21,6 @@ import {
 
 const Root = createNativeStackNavigator();
 const Jobs = createNativeStackNavigator();
-const Bids = createNativeStackNavigator();
 const Earnings = createNativeStackNavigator();
 const Profile = createNativeStackNavigator();
 
@@ -28,9 +28,6 @@ function RiderJobsStack() {
   return <Jobs.Navigator initialRouteName={routes.RIDER_JOBS} screenOptions={{ headerShown: false }}>
     <Jobs.Screen name={routes.RIDER_JOBS} component={RiderJobsScreen} />
     <Jobs.Screen name={routes.RIDER_REQUEST_DETAILS} component={RiderRequestDetailsScreen} />
-    <Jobs.Screen name={routes.RIDER_SUBMIT_BID} component={RiderSubmitBidScreen} />
-    <Jobs.Screen name={routes.RIDER_BID_SUBMITTED} component={RiderBidSubmittedScreen} />
-    <Jobs.Screen name={routes.RIDER_JOB_DECISION} component={RiderJobDecisionScreen} />
     <Jobs.Screen name={routes.RIDER_ACTIVE_DELIVERY} component={RiderActiveDeliveryScreen} />
     <Jobs.Screen name={routes.RIDER_TO_PICKUP} component={RiderToPickupScreen} />
     <Jobs.Screen name={routes.RIDER_CONFIRM_PICKUP} component={RiderConfirmPickupScreen} />
@@ -41,11 +38,6 @@ function RiderJobsStack() {
     <Jobs.Screen name={routes.RIDER_RATE} component={RiderRateScreen} />
     <Jobs.Screen name={routes.RIDER_SUPPORT} component={RiderSupportScreen} />
   </Jobs.Navigator>;
-}
-function RiderBidsStack() {
-  return <Bids.Navigator initialRouteName={routes.RIDER_BIDS_ROOT} screenOptions={{ headerShown: false }}>
-    <Bids.Screen name={routes.RIDER_BIDS_ROOT} component={RiderBidsScreen} />
-  </Bids.Navigator>;
 }
 function RiderEarningsStack() {
   return <Earnings.Navigator initialRouteName={routes.RIDER_EARNINGS} screenOptions={{ headerShown: false }}>
@@ -62,8 +54,13 @@ function RiderProfileStack() {
     <Profile.Screen name={routes.RIDER_SUPPORT} component={RiderSupportScreen} />
   </Profile.Navigator>;
 }
+// One live connection for all rider screens while signed in through the API.
 function RiderMainTabs() {
-  return <RiderTabs Jobs={RiderJobsStack} Bids={RiderBidsStack} Earnings={RiderEarningsStack} Profile={RiderProfileStack} />;
+  const apiSession = useSelector(state => Boolean(state.auth.user?.accessToken || state.auth.user?.refreshToken));
+  const live = useRiderRealtime(apiSession);
+  return <RiderLiveContext.Provider value={live}>
+    <RiderTabs Jobs={RiderJobsStack} Earnings={RiderEarningsStack} Profile={RiderProfileStack} />
+  </RiderLiveContext.Provider>;
 }
 
 export default function RiderStack() {

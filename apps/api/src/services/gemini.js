@@ -37,13 +37,13 @@ async function generateJson(request, { apiKey = config.gemini.apiKey, fetchImpl 
 }
 
 // Keep operation-specific reason formatting in the calling service.
-function validRecommendations(items, menu, limit, requireReason = false) {
+function validRecommendations(items, menu, limit) {
   const validIds = new Set(menu
     .filter(dish => dish && (dish.id ?? dish.dishId) != null)
     .map(dish => String(dish.id ?? dish.dishId)));
   const seen = new Set();
   return (Array.isArray(items) ? items : []).filter(item => {
-    if (item?.dishId == null || (requireReason && (!item.dishId || !item.reason))) return false;
+    if (item?.dishId == null) return false;
     const id = String(item.dishId);
     if (!validIds.has(id) || seen.has(id)) return false;
     seen.add(id);

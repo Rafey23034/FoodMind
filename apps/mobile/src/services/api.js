@@ -102,6 +102,17 @@ export async function apiRequest(path, { method = 'GET', body, headers, authenti
   return result.payload;
 }
 
+// <Image> source for an order's Mapbox map. The API draws it, so the Mapbox token stays on the server.
+// "version" changes the URL (for example when the order status changes) so the picture is fetched again.
+export function orderMapSource(orderId, version = '', { width = 600, height = 320 } = {}) {
+  if (!session.accessToken || !orderId) return null;
+  const query = `width=${width}&height=${height}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
+  return {
+    uri: `${API_BASE_URL}/maps/orders/${encodeURIComponent(orderId)}?${query}`,
+    headers: { Authorization: `Bearer ${session.accessToken}` },
+  };
+}
+
 export const api = {
   auth: {
     login: body => apiRequest('/auth/login', { method: 'POST', body, authenticated: false, retry: false }),

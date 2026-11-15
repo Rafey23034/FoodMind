@@ -77,9 +77,7 @@ The demo partner opens the dashboard directly. **Store > Restaurant registration
 | 17 | Order Details | New; View Details or past-order restaurant title |
 | 18 | Rate Your Order | New; delivered order details or tracking |
 | 19 | Points & Rewards | New; Profile > Points & Rewards |
-| 20 | Community Delivery | New; Profile > Community Delivery |
-| 21 | Rider Offers | New; submit a community pickup request |
-| 22 | Delivery in Progress | New; select a rider offer |
+| 20–22 | Community Delivery, Rider Offers, Delivery in Progress | Removed: dropped from scope (riders are dispatched automatically) |
 | 23 | Profile | Profile bottom tab; account and activity destinations |
 | 24 | Edit Profile | New; pencil on profile avatar |
 | 25 | Saved Addresses | Existing address book with add, edit, select, and remove |
@@ -114,15 +112,15 @@ The five main partner tabs are **Overview, Menu, Orders, Reviews, Store**. The a
 | 03 | Rider registration | Register with the Rider role |
 | 04 | Upload documents | Continue from rider registration; files stay on-device |
 | 05 | Under review | Submit the rider application; use the explicit demo approval to preview |
-| 06 | Nearby requests | Jobs tab; availability toggle and request filters |
-| 07–09 | Request details, submit bid, bid submitted | Select a request and set the delivery amount and ETA |
-| 10–11 | My bids, accept/reject selection | Bids tab; use the clearly marked selection preview to explore |
-| 12–18 | Active delivery, pickup, OTP, customer route, status, proof, completed | Accept a selected bid and advance through the local delivery flow; pickup demo code is `8421` |
+| 06 | Delivery offers | Jobs tab; availability toggle. With the API, the closest order is offered automatically; in local demo mode sample offers are listed |
+| 07 | Offer details | Fixed delivery fee with Accept or Decline (no bidding) |
+| 08–11 | Submit bid, bid submitted, my bids, selection | Removed: riders no longer set their own fee |
+| 12–18 | Active delivery, pickup, OTP, customer route, status, proof, completed | Accept an offer and advance through the delivery; pickup demo code is `8421`. Pickup and drop-off screens show the Mapbox route map for API orders |
 | 19 | Earnings | Earnings tab; demo account figures are marked as examples |
 | 20–21 | Delivery history, rate delivery | Earnings > Delivery History; completed deliveries open the rating view |
 | 22–24 | Rider profile, edit profile, documents & vehicle | Profile tab and its account options |
 
-Rider tabs are **Jobs, Bids, Earnings, Profile**. Detailed job, onboarding, and edit screens use native stack navigation. The rider demo account opens directly to the approved preview.
+Rider tabs are **Jobs, Earnings, Profile**. Detailed job, onboarding, and edit screens use native stack navigation. The rider demo account opens directly to the approved preview.
 
 ## Navigation
 
@@ -137,14 +135,13 @@ Partner tabs own the main portal screens and the preparation workflow. Registrat
 - **AI chat:** Home > FoodMind AI, tap a starter or type a request. Results appear in the conversation; keep asking ("cheaper options", "something spicy instead") and each answer builds on the earlier ones. Tap a dish to open it and come back to the same chat, or use the pencil icon for a new chat.
 - **Comparison:** in the AI chat, tap Compare above a result grid. Change either dish if desired, and add the preferred dish to the existing cart.
 - **No match:** search for `Vegan sushi under Rs. 300`. Reset Filters or continue into AI Assistant.
-- **Community delivery:** enter any shop name, pickup address, item names, quantities, estimated unit prices, and delivery address. Compare sample rider offers, choose one, and step through the demo delivery. Saved requests can be resumed from Community Delivery.
 - **Profile/support:** edit your name, phone, location, and photo; inspect reviews and points; search/expand help articles; save a support report locally.
 - **Partner registration:** sign in as partner, open Store > Restaurant registration & status, complete the business details, select the three required files from your device, and submit. Under Review has an explicit **Preview approved dashboard (demo)** action for exploring the remaining screens.
 - **Partner orders:** use the sample-order button on Overview or Orders, then open a new order, choose preparation time, accept it, mark it ready, and mark it picked up. Sample orders stay separate from customer orders. Orders placed by a customer on this device also appear in the partner portal; partner actions update their existing customer tracking statuses. Rider assignment for actual customer orders awaits the backend.
 - **Partner menu:** add or edit a dish, choose a photo, toggle availability, or confirm deletion. Name, price, availability, deletion, and photos feed the shared customer menu. The original bundled catalog files stay intact.
 - **Partner profile/reviews:** edit the store cover, logo, business contacts, hours, and cuisines. Reviews shows actual locally submitted customer feedback when available, or clearly labeled examples. **Customer Experience** previews the customer screens with a return link to the partner portal and keeps the signed-in role.
 - **Rider onboarding:** sign in with the rider demo account, or register with the Rider role and use the same Sign In screen. For a new account, complete local document selection and choose **Preview approval · demo** to open the rider tabs.
-- **Rider delivery:** choose a nearby request, submit a bid, open **Preview customer selection · demo** in My Bids, and accept. Follow the pickup and customer steps, enter the sample pickup code `8421`, optionally choose a proof photo, and confirm delivery. The delivery then appears in Earnings history.
+- **Rider delivery:** open a delivery offer from Jobs and accept it at its fixed fee (or decline it). Follow the pickup and customer steps, enter the sample pickup code `8421`, optionally choose a proof photo, and confirm delivery. The delivery then appears in Earnings history.
 
 ## AI recommendation service
 
@@ -158,21 +155,34 @@ npm run api
 
 For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this service before starting Expo. If the service cannot be reached, the chat says so and falls back to the local menu matcher, which still carries the dish from earlier turns ("under 1000" after "pasta" searches pasta under 1,000). `npm run test:api` runs the service's tests with a stand-in for Gemini. The service validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
 
+## Live rider updates (WebSocket)
+
+While a rider is signed in through the API, the rider app keeps one WebSocket open to `ws://<api>/api/v1/realtime?token=<access token>` (`apps/mobile/src/services/realtime.js`, opened once in `RiderStack` by `components/rider/useRiderRealtime.js`; the server side is `apps/api/src/realtime.js`).
+
+| Direction | Message | When |
+| --- | --- | --- |
+| Server → rider | `delivery.offer` | The closest order is offered to this rider |
+| Server → rider | `offer.expired` | The rider did not answer within `OFFER_TIMEOUT_S` |
+| Server → everyone on the order | `order.*` (`order.status_changed`, `order.rider_assigned`, `order.rider_location`, …) | The order or the rider's position changed |
+| Rider → server | `rider.location` `{ lat, lng, accuracyM }` | Every minute while online (dispatch only offers orders to riders seen in the last 2 minutes) |
+
+Messages only say *that* something changed. The app then reloads the details with the normal REST calls (`syncRiderData`) into Redux, so the Jobs screen, the active delivery and its Mapbox map update straight away. The map image is versioned by the order status, its last update and the rider's position, so it is fetched again only when one of those changes. The Jobs screen shows **Live updates on** while connected. If the socket drops, the app reconnects every 5 seconds and, until then, falls back to refreshing every 10 seconds. The server pings sockets every 30 seconds and drops phones that stopped answering.
+
 ## Mapbox routing and geocoding
 
 The API uses Mapbox Geocoding v6 for addresses and Directions v5 (`mapbox/driving-traffic`) for routes, distances, and ETAs. Set `MAPBOX_ACCESS_TOKEN` in `apps/api/.env` and restart `npm run api`; see `.env.example` for language/country settings. Google Maps keys are no longer used. The token stays on the API server.
 
-Address results are stored in MySQL, so requests use `permanent=true`; the Mapbox account must support permanent geocoding (a card on file or an enterprise contract). Mapbox has no motorcycle-specific profile, so riders use automotive routing. Without a token, local demo addresses use the configured default coordinates and tracking retains the straight-line fallback. Routing failures also use that fallback. The mobile tracking screen consumes the same `{ lat, lng }` route points as before and renders them on its existing SVG illustration.
+Address results are stored in MySQL, so requests use `permanent=true`; the Mapbox account must support permanent geocoding (a card on file or an enterprise contract). Mapbox has no motorcycle-specific profile, so riders use automotive routing. Without a token, local demo addresses use the configured default coordinates and tracking retains the straight-line fallback. Routing failures also use that fallback. Maps in the app come from the Mapbox **Static Images API**: `GET /api/v1/maps/orders/:id` checks that the signed-in customer, partner or rider may see the order, then returns a PNG with the restaurant, the customer and (while delivering) the rider pinned, plus the route line. The app shows it with a plain `<Image>` on Track Order (customer), the pickup and drop-off screens (rider) and Update Order Status (restaurant). If the image cannot load (no token, offline, or local demo mode), the existing route illustration is shown instead.
 
 ## Current integration boundaries
 
-Authentication, saved addresses, checkout, order tracking, and the customer/partner/rider order lifecycle use the Express/MySQL API. The mobile app polls every 10 seconds; the API also exposes WebSocket events. AI calls Gemini when configured and falls back to local menu matching when unavailable. Menu browsing, onboarding/documents, profile edits, community delivery, support, and rider bids/earnings remain local previews. Rider location uses fixed demo coordinates until device GPS is integrated; tracking renders route points on an SVG illustration. Payment is cash on delivery.
+Authentication, saved addresses, checkout, order tracking, and the customer/partner/rider order lifecycle use the Express/MySQL API. The rider app gets live updates over a WebSocket (see **Live rider updates** above); customer and partner screens poll the API every 10 seconds. AI calls Gemini when configured and falls back to local menu matching when unavailable. Rider delivery history and earnings load from the API for API riders. Menu browsing, onboarding/documents, profile edits and support remain local previews. Rider location uses fixed demo coordinates (`RIDER_DEMO_LOCATION`) until device GPS is integrated. Payment is cash on delivery.
 
-Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Password changes and rider calls show frontend availability messages.
+Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers and support drafts use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Password changes and rider calls show frontend availability messages.
 
 Partner profiles, document references, gallery photos, application status, online status, and sample orders use `foodmind_partner_features_v1`, separated by sign-in email. Selected files are copied into local app storage; nothing is uploaded. Approval, rider contact, customer notifications, and sample rider assignment are frontend previews. Existing cart, orders, menu, address, and customer storage keys are preserved.
 
-Rider profiles, documents, application status, online status, bids, delivery progress, ratings, proof photos, and history use `foodmind_rider_features_v1`, separated by sign-in email. Selected files and photos stay on the device. The customer, partner, and rider data use separate storage keys.
+Rider profiles, documents, application status, online status, declined demo offers, delivery progress, ratings, proof photos, and history use `foodmind_rider_features_v1`, separated by sign-in email. Selected files and photos stay on the device. The customer, partner, and rider data use separate storage keys.
 
 Store contact details are separate from the sign-in account. Store edits stay in the partner preview; publishing those edits to the server is deferred. Advanced item customization notes are saved as partner metadata; the existing customer customization controls are unchanged. For API sessions, the online toggle updates backend restaurant availability, which is enforced at checkout.
 
@@ -186,9 +196,9 @@ npx expo export --platform android --output-dir tmp/android-export
 Pop-Location
 ```
 
-The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, multi-turn AI chat (context, offline fallback, dish and compare navigation), checkout validation/confirmation, review submission, rider selection, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.
+The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, multi-turn AI chat (context, offline fallback, dish and compare navigation), checkout validation/confirmation, review submission, rider fixed-fee offers, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.
 
-The current version is checked with **165 app tests and 22 API tests**, the source check (137 JavaScript files), and **23 isolated-database smoke checks** (`npm run api:smoke`, using `foodmind_test`). API tests cover the production Express AI routes, Mapbox request/response mapping and fallbacks, partial address updates, dispatch result handling, and transaction actor cleanup. The database smoke flow includes a real WebSocket offer, order lifecycle, proof persistence, and actor attribution.
+The current version is checked with **160 app tests and 31 API tests**, the source check (134 JavaScript files), and **23 isolated-database smoke checks** (`npm run api:smoke`, using `foodmind_test`). API tests cover the production Express AI routes, Mapbox request/response mapping and fallbacks, the order map (static image URL, access checks and PNG route), the realtime socket (sign-in, who receives which event, rider location messages, offer expiry), partial address updates, dispatch result handling, and transaction actor cleanup. The database smoke flow includes a real WebSocket offer with its fee, order lifecycle, proof persistence, and actor attribution.
 
 The dependency audit currently reports inherited Expo CLI advisories involving `node-forge` and Zod. Its suggested forced Expo downgrade is incompatible with this SDK and was not applied. This is a local frontend prototype; dependency review is still needed before production deployment.
 

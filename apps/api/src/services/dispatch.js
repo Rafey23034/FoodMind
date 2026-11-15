@@ -29,7 +29,7 @@ async function offerNext(orderId) {
 
 async function sweepExpiredOffers() {
   const expired = await db.query(
-    `SELECT id, order_id FROM delivery_offers
+    `SELECT id, order_id, rider_id FROM delivery_offers
       WHERE response = 'pending' AND expires_at <= NOW()`
   );
   if (!expired.length) return;
@@ -39,6 +39,9 @@ async function sweepExpiredOffers() {
         SET response = 'expired', responded_at = NOW()
       WHERE response = 'pending' AND expires_at <= NOW()`
   );
+
+  // The rider's Jobs screen removes the offer card as soon as this arrives.
+  for (const row of expired) realtime.send(row.rider_id, 'offer.expired', { offerId: String(row.id), orderId: String(row.order_id) });
 
   const orderIds = [...new Set(expired.map(row => row.order_id))];
   for (const orderId of orderIds) {
@@ -66,4 +69,4 @@ function stopOfferWorker() {
   worker = null;
 }
 
-module.exports = { offerNext, startOfferWorker, stopOfferWorker };
+module.exports = { offerNext, sweepExpiredOffers, startOfferWorker, stopOfferWorker };

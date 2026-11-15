@@ -11,7 +11,7 @@ import addresses, { saveAddress } from '../src/redux/addressesSlice';
 import menu, { saveMenuItem, toggleMenuItem, selectAvailableItems } from '../src/redux/menuSlice';
 import customer, { selectPoints } from '../src/redux/customerSlice';
 import partner, { setPartnerOnline, loadPartnerExamples } from '../src/redux/partnerSlice';
-import rider, { saveRiderProfile, saveRiderDocument, submitRiderApplication, riderApplicationProblem, selectRiderAccount, acceptRiderBid, submitRiderBid, advanceRiderDelivery, rateRiderDelivery } from '../src/redux/riderSlice';
+import rider, { saveRiderProfile, saveRiderDocument, submitRiderApplication, riderApplicationProblem, selectRiderAccount, acceptRiderRequest, declineRiderRequest, advanceRiderDelivery, rateRiderDelivery } from '../src/redux/riderSlice';
 import { checkout, advanceOrderDemo, cancelMyOrder } from '../src/redux/orderThunks';
 import { startSession } from '../src/redux/session';
 import { hydrateStore, startPersistence, SESSION_KEY } from '../src/storage/persistence';
@@ -215,17 +215,29 @@ describe('rider fixes', () => {
     const store = makeStore();
     store.dispatch(startSession(R));
     const key = R.email;
-    const deliver = (bidId, requestId, deliveryId) => {
-      store.dispatch(submitRiderBid({ userKey: key, id: bidId, requestId, amount: 200 }));
-      store.dispatch(acceptRiderBid({ userKey: key, bidId, deliveryId }));
+    const deliver = (requestId, deliveryId) => {
+      store.dispatch(acceptRiderRequest({ userKey: key, requestId, deliveryId }));
       for (const to of ['to-customer', 'arrived', 'completed']) store.dispatch(advanceRiderDelivery({ userKey: key, to }));
     };
-    deliver('B1', 'RDR-1042', 'D1');
-    store.dispatch(submitRiderBid({ userKey: key, id: 'B2', requestId: 'RDR-1043', amount: 250 }));
-    store.dispatch(acceptRiderBid({ userKey: key, bidId: 'B2', deliveryId: 'D2' }));
+    deliver('RDR-1042', 'D1');
+    store.dispatch(acceptRiderRequest({ userKey: key, requestId: 'RDR-1043', deliveryId: 'D2' }));
     expect(selectRiderAccount(store.getState()).activeDelivery.id).toBe('D2');
     store.dispatch(rateRiderDelivery({ userKey: key, deliveryId: 'D1', rating: 4, comment: 'Smooth pickup' }));
     expect(selectRiderAccount(store.getState()).deliveries[0]).toMatchObject({ id: 'D1', rating: 4 });
+  });
+
+  test('demo offers pay their fixed fee, a second one cannot start mid-delivery, and declines are remembered', () => {
+    const store = makeStore();
+    store.dispatch(startSession(R));
+    const key = R.email;
+    store.dispatch(acceptRiderRequest({ userKey: key, requestId: 'RDR-1043', deliveryId: 'D9' }));
+    expect(selectRiderAccount(store.getState()).activeDelivery).toMatchObject({ id: 'D9', earnings: 330, status: 'to-pickup' });
+    store.dispatch(acceptRiderRequest({ userKey: key, requestId: 'RDR-1044', deliveryId: 'D10' }));
+    expect(selectRiderAccount(store.getState()).activeDelivery.id).toBe('D9');
+    store.dispatch(declineRiderRequest({ userKey: key, requestId: 'RDR-1044' }));
+    store.dispatch(declineRiderRequest({ userKey: key, requestId: 'RDR-1044' }));
+    expect(selectRiderAccount(store.getState()).declinedRequests).toEqual(['RDR-1044']);
+    expect(selectRiderAccount(store.getState())).not.toHaveProperty('bids');
   });
 });
 
@@ -290,12 +302,12 @@ function screenStore(user) {
 const nav = () => ({ navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn(), reset: jest.fn(), setParams: jest.fn(), canGoBack: () => true });
 const CUSTOMER = ['HomeScreen', 'SearchScreen', 'CartScreen', 'CheckoutScreen', 'DishDetailScreen', 'RestaurantScreen', 'MenuScreen', 'OrdersScreen',
   'OrderDetailsScreen', 'TrackOrderScreen', 'OrderPlacedScreen', 'RateOrderScreen', 'AIScreen', 'CompareDishesScreen',
-  'NoMatchScreen', 'SettingsScreen', 'EditProfileScreen', 'RewardsScreen', 'CommunityDeliveryScreen', 'RiderOffersScreen', 'DeliveryProgressScreen',
+  'NoMatchScreen', 'SettingsScreen', 'EditProfileScreen', 'RewardsScreen',
   'MyReviewsScreen', 'HelpSupportScreen', 'AddressBookScreen'].map(name => ['customer', name, () => require(`../src/screens/customer/${name}`).default]);
 const PARTNER = ['PartnerPortalScreen', 'ManageMenu', 'MenuItemEditorScreen', 'PartnerOrdersScreen', 'PartnerNewOrderScreen', 'PartnerPreparingOrderScreen',
   'PartnerOrderStatusScreen', 'PartnerReviewsScreen', 'PartnerStoreScreen', 'EditRestaurantProfileScreen', 'PartnerRegistrationScreen',
   'PartnerDocumentsScreen', 'PartnerUnderReviewScreen'].map(name => ['partner', name, () => require(`../src/screens/restaurant/${name}`).default]);
-const RIDER = [['RiderWorkScreens', ['RiderJobsScreen', 'RiderRequestDetailsScreen', 'RiderSubmitBidScreen', 'RiderBidSubmittedScreen', 'RiderBidsScreen', 'RiderJobDecisionScreen', 'RiderEarningsScreen', 'RiderHistoryScreen', 'RiderRateScreen', 'RiderProfileScreen']],
+const RIDER = [['RiderWorkScreens', ['RiderJobsScreen', 'RiderRequestDetailsScreen', 'RiderEarningsScreen', 'RiderHistoryScreen', 'RiderRateScreen', 'RiderProfileScreen']],
   ['RiderDeliveryScreens', ['RiderActiveDeliveryScreen', 'RiderToPickupScreen', 'RiderConfirmPickupScreen', 'RiderToCustomerScreen', 'RiderUpdateStatusScreen', 'RiderProofScreen', 'RiderCompletedScreen', 'RiderSupportScreen']],
   ['RiderRegistrationScreens', ['RiderRegistrationScreen', 'RiderDocumentsScreen', 'RiderUnderReviewScreen', 'RiderEditProfileScreen', 'RiderDocumentsVehicleScreen']]]
   .flatMap(([file, names]) => names.map(name => ['rider', name, () => require(`../src/screens/rider/${file}`)[name]]));
@@ -315,4 +327,40 @@ test.each([...CUSTOMER, ...PARTNER, ...RIDER, ...AUTH])('%s %s shows no stray "\
   expect(text.length).toBeGreaterThan(0);
   expect(text).not.toMatch(/\\n|(^|[^a-z])\/n\b|\n/i);
   await act(async () => tree.unmount());
+});
+
+// ---- Rider jobs: fixed-fee offers, no bidding ----
+
+async function renderRider(Screen, user, params = {}) {
+  const store = makeStore();
+  store.dispatch(startSession(user));
+  const navigation = nav();
+  let tree;
+  await act(async () => { tree = renderer.create(<Provider store={store}><SafeAreaProvider><Screen navigation={navigation} route={{ params }} /></SafeAreaProvider></Provider>); });
+  return { tree, store, navigation, text: () => collectText(tree.toJSON()).join(' ') };
+}
+
+test('local demo riders see sample offers with a fixed fee and can accept or decline them', async () => {
+  const { RiderJobsScreen, RiderRequestDetailsScreen } = require('../src/screens/rider/RiderWorkScreens');
+  const jobs = await renderRider(RiderJobsScreen, USERS.rider);
+  expect(jobs.text()).toContain('Delivery offers near you');
+  expect(jobs.text()).not.toMatch(/bid/i);
+  await act(async () => jobs.tree.unmount());
+
+  const details = await renderRider(RiderRequestDetailsScreen, USERS.rider, { requestId: 'RDR-1043' });
+  expect(details.text()).toContain('Accept Delivery · Rs. 330');
+  expect(details.text()).not.toMatch(/bid/i);
+  const accept = details.tree.root.findAll(node => typeof node.props.onPress === 'function' && collectText(node.children).join('').startsWith('Accept Delivery'))[0];
+  await act(async () => accept.props.onPress());
+  expect(selectRiderAccount(details.store.getState()).activeDelivery).toMatchObject({ requestId: 'RDR-1043', earnings: 330 });
+  expect(details.navigation.replace).toHaveBeenCalledWith('RiderActiveDelivery', expect.any(Object));
+  await act(async () => details.tree.unmount());
+});
+
+test('riders signed in through the API wait for a dispatched offer instead of browsing samples', async () => {
+  const { RiderJobsScreen } = require('../src/screens/rider/RiderWorkScreens');
+  const jobs = await renderRider(RiderJobsScreen, { ...USERS.rider, accessToken: 'a1', refreshToken: 'r1' });
+  expect(jobs.text()).toContain('Waiting for an offer');
+  expect(jobs.text()).not.toContain('Delivery offers near you');
+  await act(async () => jobs.tree.unmount());
 });

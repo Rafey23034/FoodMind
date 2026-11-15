@@ -1,5 +1,4 @@
 const express = require('express');
-const ai = require('../services/ai');
 const chat = require('../services/chat');
 
 const router = express.Router();
@@ -15,11 +14,6 @@ router.post('/chat', async (req, res) => {
     console.error('AI chat error:', error.message);
     return res.status(502).json({ error: 'Unable to generate AI recommendations.' });
   }
-});
-
-router.post('/recommendations', async (req, res) => {
-  const result = await ai.recommendations(req.body?.menu, req.body?.preferences || {});
-  res.json(result);
 });
 
 module.exports = router;

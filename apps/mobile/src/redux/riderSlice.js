@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { riderRequestById } from '../data/riderRequests';
 import { userKey } from './userKey';
 
-const EMPTY = Object.freeze({ profile: {}, documents: {}, application: { status: 'Draft' }, online: false, bids: [], apiOffer: null, activeDelivery: null, deliveries: [], exampleMetrics: null });
+const EMPTY = Object.freeze({ profile: {}, documents: {}, application: { status: 'Draft' }, online: false, declinedRequests: [], apiOffer: null, activeDelivery: null, deliveries: [], exampleMetrics: null });
 const keyFor = userKey;
 export const RIDER_DOCUMENTS = ['nationalId', 'drivingLicense', 'vehicleRegistration', 'profilePhoto'];
 // Shared by the reducer and the screens so the UI can explain exactly what is missing.
@@ -15,7 +15,7 @@ export function riderApplicationProblem(account) {
 }
 const accountFor = (state, userKey) => {
   const key = keyFor(userKey);
-  if (!state.byUser[key]) state.byUser[key] = { ...EMPTY, profile: {}, documents: {}, application: { status: 'Draft' }, bids: [], apiOffer: null, deliveries: [] };
+  if (!state.byUser[key]) state.byUser[key] = { ...EMPTY, profile: {}, documents: {}, application: { status: 'Draft' }, declinedRequests: [], apiOffer: null, deliveries: [] };
   return state.byUser[key];
 };
 const initialState = { byUser: {} };
@@ -27,10 +27,12 @@ const riderSlice = createSlice({
       if (!payload?.byUser || typeof payload.byUser !== 'object' || Array.isArray(payload.byUser)) return;
       for (const [key, saved] of Object.entries(payload.byUser)) {
         if (!saved || typeof saved !== 'object') continue;
-        state.byUser[keyFor(key)] = { ...EMPTY, ...saved,
+        // Older saves may still hold "bids" from the removed bidding flow; they are dropped here.
+        const { bids, ...rest } = saved;
+        state.byUser[keyFor(key)] = { ...EMPTY, ...rest,
           profile: saved.profile || {}, documents: saved.documents || {},
           application: saved.application || { status: 'Draft' },
-          bids: Array.isArray(saved.bids) ? saved.bids : [],
+          declinedRequests: Array.isArray(saved.declinedRequests) ? saved.declinedRequests : [],
           apiOffer: saved.apiOffer || null,
           deliveries: Array.isArray(saved.deliveries) ? saved.deliveries : [],
         };
@@ -58,40 +60,28 @@ const riderSlice = createSlice({
     setRiderOnline(state, { payload: { userKey, online } }) { accountFor(state, userKey).online = Boolean(online); },
     setRiderApiOffer(state, { payload: { userKey, offer } }) { accountFor(state, userKey).apiOffer = offer || null; },
     setRiderActiveDelivery(state, { payload: { userKey, delivery } }) { accountFor(state, userKey).activeDelivery = delivery || null; },
+    // Delivery history from the API replaces the list; ratings the rider gave on this phone are kept.
+    setRiderDeliveries(state, { payload: { userKey, deliveries } }) {
+      const account = accountFor(state, userKey);
+      const ratings = new Map(account.deliveries.map(item => [item.id, item]));
+      account.deliveries = deliveries.map(item => ({ ...item, rating: ratings.get(item.id)?.rating ?? item.rating ?? null, feedback: ratings.get(item.id)?.feedback }));
+    },
     completeRiderDelivery(state, { payload: { userKey, at } }) {
       const account = accountFor(state, userKey);
       if (!account.activeDelivery) return;
       account.deliveries.unshift({ ...account.activeDelivery, status: 'Delivered', completedAt: at || new Date().toISOString(), rating: null });
       account.activeDelivery = null;
     },
-    submitRiderBid(state, { payload: bid }) {
-      const account = accountFor(state, bid.userKey);
-      if (account.activeDelivery || !bid.requestId || !Number.isFinite(Number(bid.amount)) || Number(bid.amount) <= 0) return;
-      const next = { id: bid.id || `BID-${Date.now()}`, requestId: bid.requestId, amount: Number(bid.amount), etaMinutes: Number(bid.etaMinutes) || 20, submittedAt: bid.at || new Date().toISOString(), status: 'Pending', isDemo: true };
-      const existing = account.bids.findIndex(item => item.requestId === next.requestId && item.status === 'Pending');
-      if (existing >= 0) account.bids[existing] = { ...account.bids[existing], ...next };
-      else account.bids.unshift(next);
-    },
-    selectRiderDemoBid(state, { payload: { userKey, bidId } }) {
-      const bid = accountFor(state, userKey).bids.find(item => item.id === bidId);
-      if (bid?.status === 'Pending') bid.status = 'Selected · demo';
-    },
-    acceptRiderBid(state, { payload: { userKey, bidId, deliveryId, at } }) {
+    // Demo requests have a fixed delivery fee: the rider accepts or declines, there is no bidding.
+    acceptRiderRequest(state, { payload: { userKey, requestId, deliveryId, at } }) {
       const account = accountFor(state, userKey);
-      const bid = account.bids.find(item => item.id === bidId);
-      if (!bid || !['Pending', 'Selected · demo'].includes(bid.status) || account.activeDelivery) return;
-      const source = riderRequestById(bid.requestId);
-      if (!source) return;
-      bid.status = 'Accepted';
-      account.activeDelivery = { ...source, id: deliveryId || `DEL-${Date.now()}`, bidId: bid.id, earnings: bid.amount, status: 'to-pickup', acceptedAt: at || new Date().toISOString(), isDemo: true, proofUri: null };
+      const source = riderRequestById(requestId);
+      if (!source || account.activeDelivery) return;
+      account.activeDelivery = { ...source, id: deliveryId || `DEL-${Date.now()}`, requestId, earnings: source.deliveryFee, status: 'to-pickup', acceptedAt: at || new Date().toISOString(), isDemo: true, proofUri: null };
     },
-    declineRiderBid(state, { payload: { userKey, bidId } }) {
-      const bid = accountFor(state, userKey).bids.find(item => item.id === bidId);
-      if (bid?.status === 'Selected · demo') bid.status = 'Declined';
-    },
-    withdrawRiderBid(state, { payload: { userKey, bidId } }) {
-      const bid = accountFor(state, userKey).bids.find(item => item.id === bidId);
-      if (bid?.status === 'Pending') bid.status = 'Withdrawn';
+    declineRiderRequest(state, { payload: { userKey, requestId } }) {
+      const account = accountFor(state, userKey);
+      if (riderRequestById(requestId) && !account.declinedRequests.includes(requestId)) account.declinedRequests.push(requestId);
     },
     saveRiderProof(state, { payload: { userKey, uri } }) {
       const active = accountFor(state, userKey).activeDelivery;
@@ -118,9 +108,8 @@ const riderSlice = createSlice({
 
 export const {
   loadRiderData, initializeRiderAccount, saveRiderProfile, saveRiderDocument,
-  submitRiderApplication, approveRiderDemo, setRiderOnline, setRiderApiOffer, setRiderActiveDelivery,
-  completeRiderDelivery, submitRiderBid, selectRiderDemoBid, acceptRiderBid, declineRiderBid,
-  withdrawRiderBid, saveRiderProof, advanceRiderDelivery, rateRiderDelivery,
+  submitRiderApplication, approveRiderDemo, setRiderOnline, setRiderApiOffer, setRiderActiveDelivery, setRiderDeliveries,
+  completeRiderDelivery, acceptRiderRequest, declineRiderRequest, saveRiderProof, advanceRiderDelivery, rateRiderDelivery,
 } = riderSlice.actions;
 export const riderKey = keyFor;
 export const selectRiderAccount = state => state.rider?.byUser?.[keyFor(state.auth?.user)] || EMPTY;

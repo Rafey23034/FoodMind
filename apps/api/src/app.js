@@ -9,6 +9,7 @@ const orderRoutes = require('./routes/orders');
 const partnerRoutes = require('./routes/partner');
 const riderRoutes = require('./routes/rider');
 const aiRoutes = require('./routes/ai');
+const mapRoutes = require('./routes/maps');
 const { notFound, errorHandler } = require('./middleware/errors');
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/v1/addresses', addressRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/partner', partnerRoutes);
 app.use('/api/v1/rider', riderRoutes);
+app.use('/api/v1/maps', mapRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/ai', aiRoutes);
 

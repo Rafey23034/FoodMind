@@ -9,7 +9,8 @@ import partner from '../src/redux/partnerSlice';
 import rider from '../src/redux/riderSlice';
 import { checkout } from '../src/redux/orderThunks';
 import { transitionPartnerOrder } from '../src/redux/partnerSlice';
-import { apiOrderToLocal, hasApiSession, respondToRiderOffer } from '../src/redux/apiThunks';
+import { apiOrderToLocal, hasApiSession, respondToRiderOffer, syncRiderData } from '../src/redux/apiThunks';
+import { rateRiderDelivery } from '../src/redux/riderSlice';
 import { dishes, makeCartItem } from '../src/data/catalog';
 
 jest.mock('../src/services/api', () => {
@@ -25,7 +26,7 @@ jest.mock('../src/services/api', () => {
       addresses: { create: jest.fn() },
       orders: { create: jest.fn(), cancel: jest.fn(), tracking: jest.fn() },
       partner: { orders: jest.fn(), dashboard: jest.fn(), accept: jest.fn(), reject: jest.fn(), ready: jest.fn(), delay: jest.fn(), availability: jest.fn() },
-      rider: { status: jest.fn(), setOnline: jest.fn(), location: jest.fn(), currentOffer: jest.fn(), activeOrder: jest.fn(), respondToOffer: jest.fn(), pickup: jest.fn(), delivered: jest.fn() },
+      rider: { status: jest.fn(), setOnline: jest.fn(), location: jest.fn(), currentOffer: jest.fn(), activeOrder: jest.fn(), respondToOffer: jest.fn(), pickup: jest.fn(), delivered: jest.fn(), orders: jest.fn() },
     },
   };
 });
@@ -121,6 +122,26 @@ test('a rider accepts a direct API offer and gets the active delivery', async ()
   expect(store.getState().rider.byUser[riderUser.email].activeDelivery).toMatchObject({
     id: '700', status: 'to-pickup', pickupCode: '4321', isApi: true,
   });
+});
+
+test('rider sync loads the offer, its fee and delivered orders into Redux, keeping local ratings', async () => {
+  const store = makeStore();
+  const riderUser = { name: 'Rider', email: 'r2@food.com', role: 'rider', accessToken: 'd1', refreshToken: 'dr1' };
+  store.dispatch(login(riderUser));
+  api.rider.status.mockResolvedValue({ rider: { isOnline: true, locationUpdatedAt: new Date().toISOString() } });
+  api.rider.currentOffer.mockResolvedValue({ offer: { id: 4, orderId: 12, distanceM: 1500, deliveryFee: 180, restaurant: { name: 'Urban Bites', address: 'Main Blvd' } } });
+  api.rider.activeOrder.mockResolvedValue({ order: null });
+  api.rider.orders.mockResolvedValue({ orders: [
+    { id: '11', dbStatus: 'delivered', restaurant: 'Urban Bites', customerName: 'Ayesha', address: 'Model Town', deliveryFee: 150, deliveryDistanceM: 3200, updatedAt: '2026-11-15T10:00:00Z', items: [] },
+    { id: '12', dbStatus: 'preparing', restaurant: 'Urban Bites', deliveryFee: 180, items: [] },
+  ] });
+  await store.dispatch(syncRiderData());
+  const account = () => store.getState().rider.byUser[riderUser.email];
+  expect(account().apiOffer).toMatchObject({ id: '4', deliveryFee: 180, distanceKm: '1.5', restaurantName: 'Urban Bites' });
+  expect(account().deliveries).toEqual([expect.objectContaining({ id: '11', earnings: 150, distanceKm: '3.2', status: 'Delivered', isApi: true })]);
+  store.dispatch(rateRiderDelivery({ userKey: riderUser.email, deliveryId: '11', rating: 5 }));
+  await store.dispatch(syncRiderData());
+  expect(account().deliveries[0].rating).toBe(5);
 });
 
 test('API order items map back to local dish details and add-ons', () => {

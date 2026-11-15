@@ -68,12 +68,16 @@ async function ping(riderId, input) {
     await connection.query('UPDATE riders SET is_online = TRUE WHERE user_id = ?', [riderId]);
   });
 
+  // While delivering, the customer and restaurant maps should show the rider's new position.
+  const active = await db.one('SELECT id FROM orders WHERE active_rider_id = ?', [riderId]);
+  if (active) await realtime.notifyOrder(active.id, 'order.rider_location', {}, { except: riderId });
+
   return status(riderId);
 }
 
 async function currentOffer(riderId) {
   const row = await db.one(
-    `SELECT do2.id AS offer_id, do2.order_id, do2.distance_m, do2.expires_at,
+    `SELECT do2.id AS offer_id, do2.order_id, do2.distance_m, do2.expires_at, o.delivery_fee,
             r.name AS restaurant_name, r.address_line AS restaurant_address,
             ST_Latitude(r.location) AS restaurant_lat, ST_Longitude(r.location) AS restaurant_lng
        FROM delivery_offers do2
@@ -89,6 +93,7 @@ async function currentOffer(riderId) {
     id: String(row.offer_id),
     orderId: String(row.order_id),
     distanceM: number(row.distance_m),
+    deliveryFee: number(row.delivery_fee),
     expiresAt: iso(row.expires_at),
     restaurant: {
       name: row.restaurant_name,

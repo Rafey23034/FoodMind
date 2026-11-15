@@ -1,10 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit';
-import reducer, { saveReview, saveDelivery, earnOrderPoints, redeemReward, selectPoints, selectCustomer, saveProfile } from '../src/redux/customerSlice';
+import reducer, { loadCustomerData, saveReview, earnOrderPoints, redeemReward, selectPoints, selectCustomer, saveProfile } from '../src/redux/customerSlice';
 import cartReducer, { addItem, selectBill } from '../src/redux/cartSlice';
 import ordersReducer, { placeOrder, updateOrderStatus } from '../src/redux/ordersSlice';
 import { makeCartItem, dishes, restaurant, pricing } from '../src/data/catalog';
 import { matchDishes } from '../src/data/discovery';
-import { sortRiderOffers, riderOffers } from '../src/data/riderOffers';
 import { orderBill, orderStatusLabel } from '../src/data/orderHelpers';
 
 function makeStore() {
@@ -35,13 +34,10 @@ test('completion rewards are idempotent and insufficient points cannot be redeem
   expect(selectPoints(store.getState())).toBe(0);
   expect(selectCustomer(store.getState()).redemptions).toHaveLength(1);
 });
-test('community requests update in place and retain their selected rider', () => {
+test('accounts saved with old community deliveries load without them', () => {
   const store = makeStore();
-  const delivery = { id: 'CD1', status: 'Requested', items: [] };
-  store.dispatch(saveDelivery({ userKey: 'a@food.com', delivery }));
-  store.dispatch(saveDelivery({ userKey: 'a@food.com', delivery: { id: 'CD1', status: 'Heading to shop', rider: riderOffers[0] } }));
-  expect(selectCustomer(store.getState()).deliveries).toHaveLength(1);
-  expect(selectCustomer(store.getState()).deliveries[0].rider.id).toBe('rider-c');
+  store.dispatch(loadCustomerData({ byUser: { 'a@food.com': { reviews: [], deliveries: [{ id: 'CD1' }] } } }));
+  expect(selectCustomer(store.getState())).not.toHaveProperty('deliveries');
 });
 test('menu matching respects budget, dietary restrictions, ratings, and available delivery time', () => {
   const matches = matchDishes(dishes, 'Creamy chicken pasta under Rs. 1,200');
@@ -51,12 +47,6 @@ test('menu matching respects budget, dietary restrictions, ratings, and availabl
   expect(matchDishes(dishes, 'pasta', ['fast'])).toEqual([]);
   expect(matchDishes(dishes, 'pasta', ['budget', 'rating']).every(dish => dish.price <= 1000 && dish.rating >= 4.5)).toBe(true);
   expect(matchDishes(dishes, 'pasta under Rs. 1200', ['budget']).every(dish => dish.price <= 1000)).toBe(true);
-});
-test('rider sorting compares price, time and rating without mutating source data', () => {
-  expect(sortRiderOffers(riderOffers, 'Lowest price')[0].id).toBe('rider-c');
-  expect(sortRiderOffers(riderOffers, 'Fastest')[0].id).toBe('rider-b');
-  expect(sortRiderOffers(riderOffers, 'Top rated')[0].id).toBe('rider-a');
-  expect(riderOffers.map(rider => rider.id)).toEqual(['rider-c', 'rider-b', 'rider-a']);
 });
 test('existing cart billing is preserved and order details reconcile to checkout', () => {
   const store = makeStore();

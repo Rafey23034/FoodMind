@@ -170,7 +170,8 @@ async function run(base) {
   assert.equal(offerEvent.restaurantId, '1');
   assert.equal(offerEvent.distanceM, offer.distanceM);
   assert.equal(offerEvent.expiresAt, offer.expiresAt);
-  pass('WebSocket offer', 'real offer ID, distance and expiry');
+  assert.ok(offer.deliveryFee > 0, 'the offer should show the fixed delivery fee');
+  pass('WebSocket offer', `real offer ID, distance, expiry and fee Rs. ${offer.deliveryFee}`);
 
   const assigned = await request(base, `/rider/offers/${offer.id}/respond`, {
     method: 'POST',

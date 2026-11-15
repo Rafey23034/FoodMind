@@ -20,9 +20,6 @@ import TrackOrderScreen from '../screens/customer/TrackOrderScreen';
 import OrderDetailsScreen from '../screens/customer/OrderDetailsScreen';
 import RateOrderScreen from '../screens/customer/RateOrderScreen';
 import RewardsScreen from '../screens/customer/RewardsScreen';
-import CommunityDeliveryScreen from '../screens/customer/CommunityDeliveryScreen';
-import RiderOffersScreen from '../screens/customer/RiderOffersScreen';
-import DeliveryProgressScreen from '../screens/customer/DeliveryProgressScreen';
 import EditProfileScreen from '../screens/customer/EditProfileScreen';
 import MyReviewsScreen from '../screens/customer/MyReviewsScreen';
 import HelpSupportScreen from '../screens/customer/HelpSupportScreen';
@@ -41,9 +38,6 @@ const sharedScreens = [
   [routes.ORDER_DETAILS, OrderDetailsScreen],
   [routes.RATE_ORDER, RateOrderScreen],
   [routes.REWARDS, RewardsScreen],
-  [routes.COMMUNITY_DELIVERY, CommunityDeliveryScreen],
-  [routes.RIDER_OFFERS, RiderOffersScreen],
-  [routes.DELIVERY_PROGRESS, DeliveryProgressScreen],
   [routes.EDIT_PROFILE, EditProfileScreen],
   [routes.MY_REVIEWS, MyReviewsScreen],
   [routes.HELP_SUPPORT, HelpSupportScreen],

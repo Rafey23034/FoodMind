@@ -1,4 +1,4 @@
-import { ApiError, api, apiRequest, clearApiSession, setApiSession } from '../src/services/api';
+import { ApiError, api, apiRequest, clearApiSession, orderMapSource, setApiSession } from '../src/services/api';
 
 const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
@@ -36,4 +36,13 @@ test('a network failure has status 0 so callers can fall back to local data', as
   const error = await apiRequest('/orders').catch(value => value);
   expect(error).toBeInstanceOf(ApiError);
   expect(error.status).toBe(0);
+});
+
+test('order maps load from the API with the signed-in token, and not without a session', () => {
+  expect(orderMapSource('42')).toBeNull();
+  setApiSession({ accessToken: 'a1', refreshToken: 'r1' });
+  const source = orderMapSource('42', 'picked_up', { width: 400, height: 200 });
+  expect(source.uri).toMatch(/\/api\/v1\/maps\/orders\/42\?width=400&height=200&v=picked_up$/);
+  expect(source.headers).toEqual({ Authorization: 'Bearer a1' });
+  expect(orderMapSource(null)).toBeNull();
 });

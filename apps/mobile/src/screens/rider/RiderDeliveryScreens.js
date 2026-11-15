@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLocationDot, faCheck, faBox, faMotorcycle } from '@fortawesome/free-solid-svg-icons';
 import RiderLayout from '../../components/rider/RiderLayout';
 import useRider from '../../components/rider/useRider';
+import { useRiderLive } from '../../components/rider/useRiderRealtime';
 import DeliveryMap from '../../components/customer/DeliveryMap';
 import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
@@ -12,6 +13,7 @@ import AppInput from '../../components/AppInput';
 import { EmptyState, Notice, ui } from '../../components/customer/ui';
 import { advanceRiderDelivery, saveRiderProof } from '../../redux/riderSlice';
 import { completeApiOrder, pickupApiOrder } from '../../redux/apiThunks';
+import { orderMapSource } from '../../services/api';
 import { chooseRiderProof } from '../../utils/riderMedia';
 import { riderRequestById } from '../../data/riderRequests';
 import { formatPrice } from '../../data/catalog';
@@ -36,7 +38,7 @@ export function RiderActiveDeliveryScreen({ navigation, route }) {
   const active = activeFor(rider, route);
   const step = STEP[active?.status] || STEP['to-pickup'];
   return <RiderLayout navigation={navigation} title="Active Delivery" subtitle={active ? `Order #${active.orderId}` : 'Delivery details'} hasTabs>
-    {!active ? <EmptyState title="No active delivery">Place a bid on a nearby request to explore the demo delivery route.</EmptyState> : <>
+    {!active ? <EmptyState title="No active delivery">Accept a delivery offer from Jobs to start a route.</EmptyState> : <>
       <View style={ui.between}><AppText variant="caption" color={COLORS.primary}>●  IN PROGRESS</AppText><AppText variant="caption" color={COLORS.textSecondary}>Stage {step.number} of 3</AppText></View>
       <View style={ui.card}><AppText variant="caption" color={COLORS.textSecondary}>YOUR NEXT STOP</AppText><AppText variant="subheading">{step.number === 1 ? active.restaurant : active.customer}</AppText><AppText variant="small" color={COLORS.textSecondary}>{step.number === 1 ? active.pickupAddress : active.customerAddress}</AppText><View style={ui.row}><FontAwesomeIcon icon={faLocationDot} color={COLORS.primary} size={15} /><AppText variant="small">{active.distanceKm} km · about {active.etaMinutes} min away</AppText></View></View>
       <View style={ui.card}><AppText style={ui.bold}>{active.customer} · {active.customerAddress}</AppText><AppText variant="caption" color={COLORS.textSecondary}>{active.items.map(item => `${item.quantity} × ${item.name}`).join(', ')}</AppText><AppText variant="caption" color={COLORS.success}>Delivery fee · {formatPrice(active.earnings)}</AppText></View>
@@ -48,11 +50,12 @@ export function RiderActiveDeliveryScreen({ navigation, route }) {
 
 export function RiderToPickupScreen({ navigation, route }) {
   const rider = useRider();
+  const live = useRiderLive();
   const active = activeFor(rider, route);
   return <RiderLayout navigation={navigation} title="Navigate to Pickup" subtitle={active ? `${active.restaurant} · ${active.pickupAddress}` : ''} hasTabs
     footer={active ? <><AppButton title="I'm Arrived at Restaurant" onPress={() => navigation.navigate(routes.RIDER_CONFIRM_PICKUP, { deliveryId: active.id })} /><AppButton title="Contact Restaurant" variant="outline" onPress={() => navigation.navigate(routes.RIDER_SUPPORT)} /></> : null}>
     {!active ? <EmptyState title="Delivery not found">Return to Jobs to resume your current delivery.</EmptyState> : <>
-      <DeliveryMap community />
+      <DeliveryMap eta={`${active.distanceKm} km to pickup`} live={live && active.isApi} mapSource={active.isApi ? orderMapSource(active.orderId, active.mapVersion || active.status) : null} />
       <View style={ui.card}><AppText variant="caption" color={COLORS.textSecondary}>PICKUP LOCATION</AppText><AppText variant="subheading">{active.restaurant}</AppText><AppText variant="small" color={COLORS.textSecondary}>{active.pickupAddress}</AppText><View style={ui.row}><FontAwesomeIcon icon={faLocationDot} size={15} color={COLORS.primary} /><AppText variant="small">{active.distanceKm} km · 9 min drive</AppText></View></View>
     </>}
   </RiderLayout>;
@@ -92,9 +95,10 @@ export function RiderConfirmPickupScreen({ navigation, route }) {
 
 export function RiderToCustomerScreen({ navigation, route }) {
   const rider = useRider();
+  const live = useRiderLive();
   const active = activeFor(rider, route);
   return <RiderLayout navigation={navigation} title="Navigate to Customer" subtitle={active ? `${active.customer} · ${active.customerAddress}` : ''} hasTabs footer={active ? <><AppButton title="Update Delivery Progress" onPress={() => navigation.navigate(routes.RIDER_UPDATE_STATUS, { deliveryId: active.id })} /><AppButton title="Contact Customer" variant="outline" onPress={() => navigation.navigate(routes.RIDER_SUPPORT)} /></> : null}>
-    {!active ? <EmptyState title="Delivery not found">Return to Jobs to resume your delivery.</EmptyState> : <><DeliveryMap community arrived />
+    {!active ? <EmptyState title="Delivery not found">Return to Jobs to resume your delivery.</EmptyState> : <><DeliveryMap eta="Heading to customer" live={live && active.isApi} mapSource={active.isApi ? orderMapSource(active.orderId, active.mapVersion || active.status) : null} />
       <View style={ui.card}><AppText variant="caption" color={COLORS.primary}>DROP-OFF LOCATION</AppText><AppText variant="subheading">{active.customer}</AppText><AppText variant="small" color={COLORS.textSecondary}>{active.customerAddress}</AppText><AppText variant="caption" color={COLORS.textSecondary}>Arrive in about 13 minutes · Leave the order at the door if requested.</AppText></View>
     </>}
   </RiderLayout>;
@@ -175,9 +179,9 @@ export function RiderCompletedScreen({ navigation, route }) {
 export function RiderSupportScreen({ navigation }) {
   return <RiderLayout navigation={navigation} title="Rider Help & Support" footer={<AppButton title="Back to Delivery" onPress={() => navigation.goBack()} />}>
     <Notice title="Calls and live support are a preview">Contact actions will connect to a rider support service later.</Notice>
-    {['How does bidding work?', 'What should I do at pickup?', 'How do I confirm delivery?', 'Where are my earnings saved?'].map((question, index) => <View key={question} style={ui.card}>
+    {['How do I get delivery jobs?', 'What should I do at pickup?', 'How do I confirm delivery?', 'Where are my earnings saved?'].map((question, index) => <View key={question} style={ui.card}>
       <AppText variant="small" style={ui.bold}>{question}</AppText>
-      <AppText variant="caption" color={COLORS.textSecondary}>{['Choose a delivery job and set the fee and arrival estimate you prefer.', 'Check the order and confirm the four-digit pickup code with the restaurant.', 'Mark your arrival and optionally add a local proof photo before completing delivery.', 'Earning entries from completed demo deliveries appear in the Earnings tab.'][index]}</AppText>
+      <AppText variant="caption" color={COLORS.textSecondary}>{['Go online. FoodMind offers you nearby orders with a fixed delivery fee, and you accept or decline each one.', 'Check the order and confirm the four-digit pickup code with the restaurant.', 'Mark your arrival and optionally add a local proof photo before completing delivery.', 'Earning entries from completed demo deliveries appear in the Earnings tab.'][index]}</AppText>
     </View>)}
   </RiderLayout>;
 }

@@ -2,7 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { buildGeminiRequest, cleanResult, getChatReply } = require('../src/services/chat');
-const { recommendations } = require('../src/services/ai');
 const config = require('../src/config');
 const app = require('../src/app');
 const httpFetch = fetch;
@@ -77,7 +76,7 @@ test('getChatReply skips thinking parts and returns the cleaned answer', async (
   assert.equal(result.recommendations[0].dishId, 'white-sauce-pasta');
 });
 
-test('Express validates and serves both AI operations under both prefixes', async t => {
+test('Express validates and serves the AI chat under both prefixes', async t => {
   const { fetchImpl } = fakeGemini({ reply: 'Sure.', recommendations: [{ dishId: 'creamy-pasta', reason: 'Fits' }], suggestions: ['Cheaper'] });
   const base = await startApi(t, fetchImpl);
   const post = (path, body) => httpFetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -88,10 +87,7 @@ test('Express validates and serves both AI operations under both prefixes', asyn
     const ok = await post(`${prefix}/chat?source=app`, { menu, prompt: 'pasta', history: [] });
     assert.equal(ok.status, 200);
     assert.deepEqual(await ok.json(), { reply: 'Sure.', title: '', recommendations: [{ dishId: 'creamy-pasta', reason: 'Fits' }], suggestions: ['Cheaper'] });
-    const picks = await post(`${prefix}/recommendations`, { menu, preferences: { budget: 1100 } });
-    assert.equal(picks.status, 200);
-    assert.deepEqual(await picks.json(), { recommendations: [{ dishId: 'creamy-pasta', reason: 'Fits' }] });
-    assert.equal((await post(`${prefix}/recommendations`, {})).status, 400);
+    assert.equal((await post(`${prefix}/recommendations`, { menu, prompt: 'pasta' })).status, 404);
   }
 });
 
@@ -99,15 +95,13 @@ test('Gemini failures return a generic 502 without internal details', async t =>
   const fetchImpl = async () => ({ ok: false, status: 429, json: async () => ({ error: { message: 'quota exceeded for key abc' } }) });
   const base = await startApi(t, fetchImpl);
   t.mock.method(console, 'error', () => {});
-  for (const operation of ['chat', 'recommendations']) {
-    const res = await httpFetch(`${base}/api/ai/${operation}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ menu, prompt: 'pasta' }),
-    });
-    assert.equal(res.status, 502);
-    const body = await res.json();
-    assert.doesNotMatch(body.error, /quota|abc/);
-  }
+  const res = await httpFetch(`${base}/api/ai/chat`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ menu, prompt: 'pasta' }),
+  });
+  assert.equal(res.status, 502);
+  const body = await res.json();
+  assert.doesNotMatch(body.error, /quota|abc/);
 });
 
 test('Express handles malformed and oversized JSON, unknown routes and CORS', async t => {
@@ -123,26 +117,22 @@ test('Express handles malformed and oversized JSON, unknown routes and CORS', as
   assert.equal(preflight.headers.get('access-control-allow-origin'), '*');
 });
 
-test('chat and preferences retain their distinct limits and reason policies', async () => {
+test('chat keeps at most 8 real, unique dishes', async () => {
   const dishes = Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1) }));
   const answer = { recommendations: dishes.map(dish => ({ dishId: dish.id, reason: 'Fits' })) };
   answer.recommendations.unshift({ dishId: 'unknown', reason: 'Invented' }, { dishId: '1' });
   const { fetchImpl } = fakeGemini(answer);
   const chat = await getChatReply({ menu: dishes, prompt: 'food' }, { apiKey: 'test', fetchImpl });
-  const picks = await recommendations(dishes, {}, { apiKey: 'test', fetchImpl });
   assert.equal(chat.recommendations.length, 8);
   assert.equal(chat.recommendations[0].reason, '');
-  assert.equal(picks.recommendations.length, 5);
-  assert.equal(picks.recommendations[0].reason, 'Fits');
 });
 
-test('both AI operations reject empty, thinking-only and invalid JSON replies', async () => {
+test('the AI chat rejects empty, thinking-only and invalid JSON replies', async () => {
   for (const parts of [[], [{ text: 'thinking', thought: true }], [{ text: '{bad json' }]]) {
     const options = {
       apiKey: 'test',
       fetchImpl: async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts } }] }) }),
     };
     await assert.rejects(getChatReply({ menu, prompt: 'pasta' }, options), /empty response|invalid JSON/);
-    await assert.rejects(recommendations(menu, {}, options), /empty response|invalid JSON/);
   }
 });

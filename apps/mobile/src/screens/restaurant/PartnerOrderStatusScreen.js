@@ -6,6 +6,8 @@ import usePartner from '../../components/partner/usePartner';
 import { usePartnerOrder, PartnerOrderProgress, OrderStageBadge } from '../../components/partner/PartnerOrder';
 import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
+import DeliveryMap from '../../components/customer/DeliveryMap';
+import { orderMapSource } from '../../services/api';
 import { EmptyState, Notice, ui } from '../../components/customer/ui';
 import { transitionPartnerOrder, delayPartnerPickup } from '../../redux/partnerSlice';
 import { orderNumber, partnerStage, PARTNER_STAGE_LABELS } from '../../data/partnerOrders';
@@ -30,6 +32,10 @@ export default function PartnerOrderStatusScreen({ navigation, route, hasPartner
       <View style={ui.card}><AppText variant="subheading">Workflow</AppText><PartnerOrderProgress order={order} accepted />
         <Notice success={stage === 'ready' || stage === 'delivered'} title={`Current stage: ${PARTNER_STAGE_LABELS[stage]}`} />
       </View>
+      {order.source === 'api' && !['rejected', 'delivered'].includes(stage) ? <View style={ui.card}>
+        <AppText variant="subheading">Delivery route</AppText>
+        <DeliveryMap eta={order.rider ? `Rider · ${order.rider.name}` : 'Waiting for a rider'} mapSource={orderMapSource(order.id, order.dbStatus || stage)} />
+      </View> : null}
       <AppText variant="small" color={COLORS.textSecondary}>QUICK ACTIONS</AppText>
       {stage === 'ready' ? (order.source === 'api'
         ? <Notice title="Waiting for rider pickup">The assigned rider marks this order picked up in the rider app.</Notice>

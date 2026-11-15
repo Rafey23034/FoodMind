@@ -5,11 +5,12 @@ import { mergeOrders, placeOrder, replaceOrder } from './ordersSlice';
 import { clearCart } from './cartSlice';
 import { apiOrderToLocal, clean } from './apiOrderMap';
 import { savePartnerProfile, setPartnerOnline } from './partnerSlice';
-import { advanceRiderDelivery, completeRiderDelivery, saveRiderProfile, setRiderActiveDelivery, setRiderApiOffer, setRiderOnline } from './riderSlice';
+import { advanceRiderDelivery, completeRiderDelivery, saveRiderProfile, setRiderActiveDelivery, setRiderApiOffer, setRiderDeliveries, setRiderOnline } from './riderSlice';
 import { userKey } from './userKey';
 
 let restaurantCache = null;
-const DEFAULT_RIDER_LOCATION = { lat: 31.4697, lng: 74.2728, accuracyM: 80 };
+// Fixed demo position until the app reads the phone's GPS.
+export const RIDER_DEMO_LOCATION = { lat: 31.4697, lng: 74.2728, accuracyM: 80 };
 
 export const hasApiSession = () => {
   const tokens = getApiSession();
@@ -178,6 +179,26 @@ function riderDeliveryFromOrder(order) {
     status: local.dbStatus === 'picked_up' ? 'to-customer' : 'to-pickup',
     proofUri: null,
     isApi: true,
+    // Changes whenever the order or the rider's position changes, so the Mapbox map image reloads.
+    mapVersion: [order.dbStatus, order.updatedAt, order.rider?.location?.lat, order.rider?.location?.lng].join('|'),
+  };
+}
+
+// A delivered API order as a row in the rider's Earnings and History screens.
+function riderHistoryFromOrder(order) {
+  return {
+    id: String(order.id),
+    orderId: String(order.id),
+    requestId: String(order.id),
+    restaurant: order.restaurant,
+    customer: order.customerName || 'FoodMind customer',
+    customerAddress: order.address,
+    distanceKm: order.deliveryDistanceM != null ? (order.deliveryDistanceM / 1000).toFixed(1) : null,
+    earnings: Number(order.deliveryFee) || 0,
+    completedAt: order.updatedAt || order.createdAt,
+    status: 'Delivered',
+    rating: null,
+    isApi: true,
   };
 }
 
@@ -198,8 +219,8 @@ export function syncRiderData() {
     if (user?.role !== 'rider' || !hasApiSession()) return;
 
     const key = userKey(user);
-    const [statusResult, offerResult, activeResult] = await Promise.allSettled([
-      api.rider.status(), api.rider.currentOffer(), api.rider.activeOrder(),
+    const [statusResult, offerResult, activeResult, ordersResult] = await Promise.allSettled([
+      api.rider.status(), api.rider.currentOffer(), api.rider.activeOrder(), api.rider.orders(),
     ]);
 
     if (statusResult.status === 'fulfilled') {
@@ -217,7 +238,7 @@ export function syncRiderData() {
       }));
       const lastPing = profile.locationUpdatedAt ? new Date(profile.locationUpdatedAt).getTime() : 0;
       if (profile.isOnline && Date.now() - lastPing > 90000) {
-        api.rider.location(DEFAULT_RIDER_LOCATION).catch(() => {});
+        api.rider.location(RIDER_DEMO_LOCATION).catch(() => {});
       }
     }
 
@@ -236,6 +257,11 @@ export function syncRiderData() {
         dispatch(setRiderActiveDelivery({ userKey: key, delivery }));
       } else if (current?.isApi) dispatch(setRiderActiveDelivery({ userKey: key, delivery: null }));
     }
+
+    if (ordersResult.status === 'fulfilled') {
+      const delivered = (ordersResult.value.orders || []).filter(order => order.dbStatus === 'delivered');
+      dispatch(setRiderDeliveries({ userKey: key, deliveries: delivered.map(riderHistoryFromOrder) }));
+    }
   };
 }
 
@@ -248,7 +274,7 @@ export function setRiderAvailability(online) {
     try {
       const result = await api.rider.setOnline(Boolean(online));
       dispatch(setRiderOnline({ userKey: key, online: result.rider.isOnline }));
-      if (result.rider.isOnline) await api.rider.location(DEFAULT_RIDER_LOCATION);
+      if (result.rider.isOnline) await api.rider.location(RIDER_DEMO_LOCATION);
       return true;
     } catch {
       dispatch(setRiderOnline({ userKey: key, online: !online }));

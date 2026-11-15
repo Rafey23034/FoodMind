@@ -329,6 +329,23 @@ async function tracking(user, orderId) {
   };
 }
 
+// One map for everyone on the order: restaurant, customer and, while delivering, the rider.
+async function mapImage(user, orderId, size) {
+  const row = await findRow(orderId);
+  assertAccess(row, user);
+  const restaurantPoint = location({ lat: row.restaurant_lat, lng: row.restaurant_lng });
+  const destination = location({ lat: row.delivery_lat, lng: row.delivery_lng });
+  const active = !['delivered', 'cancelled', 'rejected'].includes(row.status);
+  const riderPoint = active && row.rider_id ? location({ lat: row.rider_lat, lng: row.rider_lng }) : null;
+  const route = active ? await maps.computeRoute(restaurantPoint, destination) : null;
+  const markers = [
+    restaurantPoint && { ...restaurantPoint, icon: 'restaurant', color: 'fa542b' },
+    destination && { ...destination, icon: 'home', color: '211b18' },
+    riderPoint && { ...riderPoint, icon: 'bicycle', color: '239b66' },
+  ].filter(Boolean);
+  return maps.staticMap({ line: route?.coordinates || [], markers, ...size });
+}
+
 async function review(user, orderId, input) {
   const row = await findRow(orderId);
   if (!row) throw notFound('Order not found.');
@@ -412,6 +429,7 @@ async function delivered(user, orderId, proofPhotoUrl) {
 }
 
 module.exports = {
+  mapImage,
   listForCustomer,
   listForPartner,
   listForRider,

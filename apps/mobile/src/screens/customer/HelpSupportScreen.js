@@ -11,7 +11,6 @@ import { COLORS } from '../../theme/colors';
 
 const FAQS = [
   { question: 'How do points work?', summary: 'Earn rewards by ordering and reviewing.', answer: 'Each delivered order earns 20 points. Your first review of that order earns another 20 points. Editing a review does not add more points. Redeem 100 points for a saved demo voucher.' },
-  { question: 'How does community delivery work?', summary: 'Choose a rider for your delivery request.', answer: 'Enter a shop, its pickup address, the items you want, and your delivery address. Compare the example offers by price, time, or rating, select a rider, and preview the delivery stages. Real rider booking will be connected later.' },
   { question: 'How do I cancel an order?', summary: 'You can cancel before preparation begins.', answer: 'Open My Orders, choose View Details, then Cancel Order. You can cancel until the restaurant accepts the order.' },
   { question: 'Where is my order?', summary: 'Track progress from My Orders.', answer: 'Open My Orders and tap Track Order. The tracking screen shows the saved order status and an illustrated demo route. The restaurant updates preparation and pickup; the demo control previews the next stage.' },
 ];

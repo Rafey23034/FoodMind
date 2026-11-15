@@ -107,4 +107,40 @@ async function computeRoute(origin, destination) {
   return value;
 }
 
-module.exports = { geocode, reverseGeocode, computeRoute };
+const MAP_STYLE = 'mapbox/streets-v12';
+const MAX_LINE_POINTS = 60;
+const round = value => Number(Number(value).toFixed(5));
+
+// Mapbox Static Images URL: the route as a GeoJSON line, one pin per stop, framed automatically ("auto").
+function staticMapUrl({ line = [], markers = [], width, height }) {
+  const overlays = [];
+  if (line.length >= 2) {
+    // Fewer points keep the URL well under Mapbox's 8,192-character limit.
+    const step = Math.ceil(line.length / MAX_LINE_POINTS);
+    const points = line.filter((point, index) => index % step === 0 || index === line.length - 1);
+    const feature = {
+      type: 'Feature',
+      properties: { stroke: '#FA542B', 'stroke-width': 4 },
+      geometry: { type: 'LineString', coordinates: points.map(point => [round(point.lng), round(point.lat)]) },
+    };
+    overlays.push(`geojson(${encodeURIComponent(JSON.stringify(feature))})`);
+  }
+  for (const marker of markers) overlays.push(`pin-s-${marker.icon}+${marker.color}(${round(marker.lng)},${round(marker.lat)})`);
+  const params = new URLSearchParams({ padding: '40', access_token: config.mapbox.accessToken });
+  return `https://api.mapbox.com/styles/v1/${MAP_STYLE}/static/${overlays.join(',')}/auto/${width}x${height}@2x?${params}`;
+}
+
+// Returns the map as PNG bytes, or null when there is no token or nothing to draw.
+async function staticMap({ line, markers, width = 600, height = 300 }) {
+  if (!config.mapbox.accessToken || !markers?.length) return null;
+  let response;
+  try {
+    response = await fetch(staticMapUrl({ line, markers, width, height }), { signal: AbortSignal.timeout(10000) });
+  } catch {
+    throw new HttpError(502, 'Mapbox is unavailable. Try again.');
+  }
+  if (!response.ok) throw new HttpError(502, `Mapbox returned ${response.status}.`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
+module.exports = { geocode, reverseGeocode, computeRoute, staticMap, staticMapUrl };

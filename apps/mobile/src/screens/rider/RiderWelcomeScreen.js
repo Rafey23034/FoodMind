@@ -15,9 +15,9 @@ export default function RiderWelcomeScreen({ onRegister, onSignIn }) {
         <View style={styles.badge}><AppText variant="caption" color={COLORS.primary}>FOODMIND RIDER</AppText></View>
         <View style={styles.illustration}><FontAwesomeIcon icon={faMotorcycle} size={62} color={COLORS.primary} /></View>
         <AppText variant="title" style={styles.title}>Ride. Deliver. Earn.</AppText>
-        <AppText variant="small" color={COLORS.textSecondary} style={styles.copy}>Flexible deliveries, fair bids and reliable earnings on your track.</AppText>
+        <AppText variant="small" color={COLORS.textSecondary} style={styles.copy}>Flexible deliveries, fixed delivery fees and reliable earnings on your track.</AppText>
         <View style={styles.benefits}>
-          <View style={styles.benefit}><FontAwesomeIcon icon={faWallet} size={17} color={COLORS.primary} /><AppText variant="small" style={styles.benefitText}>Set your price</AppText><AppText variant="caption" color={COLORS.textSecondary}>Bid on nearby deliveries</AppText></View>
+          <View style={styles.benefit}><FontAwesomeIcon icon={faWallet} size={17} color={COLORS.primary} /><AppText variant="small" style={styles.benefitText}>Clear earnings</AppText><AppText variant="caption" color={COLORS.textSecondary}>See the fee before you accept</AppText></View>
           <View style={styles.benefit}><FontAwesomeIcon icon={faLocationDot} size={17} color={COLORS.primary} /><AppText variant="small" style={styles.benefitText}>Stay in control</AppText><AppText variant="caption" color={COLORS.textSecondary}>Accept the jobs you want</AppText></View>
         </View>
       </View>

@@ -10,6 +10,7 @@ import { EmptyState, Notice, ui } from '../../components/customer/ui';
 import { selectMyOrder } from '../../redux/ordersSlice';
 import { advanceOrderDemo } from '../../redux/orderThunks';
 import { refreshOrderTracking } from '../../redux/apiThunks';
+import { orderMapSource } from '../../services/api';
 import { isClosedOrder, orderStatusLabel, orderEtaText, riderLine } from '../../data/orderHelpers';
 import { DEMO_STAGE_ACTION, partnerStage } from '../../data/partnerOrders';
 import { restaurant } from '../../data/catalog';
@@ -34,7 +35,8 @@ export default function TrackOrderScreen({ navigation, route }) {
 
   return <ScreenLayout navigation={navigation} title="Track Order" subtitle={order ? `Order #${order.id.slice(-6)}` : ''}>
     {!order ? <EmptyState title="Order not found">Choose an order from My Orders to track it.</EmptyState> : <>
-      <DeliveryMap arrived={order.status === 'Delivered'} eta={closed ? null : orderEtaText(order, restaurant.time)} points={order.route?.coordinates} />
+      <DeliveryMap arrived={order.status === 'Delivered'} eta={closed ? null : orderEtaText(order, restaurant.time)} points={order.route?.coordinates}
+        mapSource={order.source === 'api' ? orderMapSource(order.id, order.dbStatus || order.status) : null} />
       <View style={ui.card}>
         <AppText variant="subheading">{HEADLINE[stage] || orderStatusLabel(order)}</AppText>
         {!closed ? <AppText variant="small" color={COLORS.textSecondary}>{orderEtaText(order, restaurant.time)}</AppText> : null}

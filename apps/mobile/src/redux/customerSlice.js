@@ -1,7 +1,7 @@
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import { userKey } from './userKey';
 
-const newAccount = () => ({ reviews: [], deliveries: [], redemptions: [], reports: [], profile: {}, pointsHistory: [], favorites: [] });
+const newAccount = () => ({ reviews: [], redemptions: [], reports: [], profile: {}, pointsHistory: [], favorites: [] });
 const EMPTY_ACCOUNT = Object.freeze(newAccount());
 export const REWARD_COST = 100;
 export const customerKey = userKey;
@@ -12,8 +12,10 @@ function accountFor(state, key) {
 function normalizeAccount(account) {
   const base = newAccount();
   if (!account || typeof account !== 'object') return base;
-  const result = { ...base, ...account, profile: account.profile && typeof account.profile === 'object' ? account.profile : {} };
-  for (const field of ['reviews', 'deliveries', 'redemptions', 'reports', 'pointsHistory', 'favorites']) {
+  // Accounts saved before community delivery was removed may still carry "deliveries"; drop it.
+  const { deliveries, ...saved } = account;
+  const result = { ...base, ...saved, profile: account.profile && typeof account.profile === 'object' ? account.profile : {} };
+  for (const field of ['reviews', 'redemptions', 'reports', 'pointsHistory', 'favorites']) {
     if (!Array.isArray(result[field])) result[field] = [];
   }
   return result;
@@ -44,12 +46,6 @@ const customerSlice = createSlice({
         account.pointsHistory.unshift({ id: `order-${orderId}`, amount: 20, label: `Completed order #${String(orderId).slice(-6)}`, createdAt });
       }
     },
-    saveDelivery(state, { payload: { userKey: key, delivery } }) {
-      const account = accountFor(state, key);
-      const index = account.deliveries.findIndex(item => item.id === delivery.id);
-      if (index >= 0) account.deliveries[index] = { ...account.deliveries[index], ...delivery };
-      else account.deliveries.unshift(delivery);
-    },
     redeemReward(state, { payload: { userKey: key, id, createdAt } }) {
       const account = accountFor(state, key);
       if (pointsOf(account) < REWARD_COST) return;
@@ -71,7 +67,7 @@ function pointsOf(account) {
     - (account.redemptions || []).reduce((sum, item) => sum + (item.points || REWARD_COST), 0);
 }
 
-export const { loadCustomerData, saveProfile, saveReview, saveDelivery, redeemReward, saveReport, earnOrderPoints, toggleFavorite } = customerSlice.actions;
+export const { loadCustomerData, saveProfile, saveReview, redeemReward, saveReport, earnOrderPoints, toggleFavorite } = customerSlice.actions;
 export const selectCustomer = state => state.customer.byUser[customerKey(state.auth.user)] || EMPTY_ACCOUNT;
 export const selectPoints = createSelector([selectCustomer], pointsOf);
 export const selectIsFavorite = (state, dishId) => (selectCustomer(state).favorites || []).includes(dishId);

@@ -8,7 +8,7 @@ import { confirmLogout } from '../../utils/confirm';
 // The Profile tab root. Order history lives in the profile; Cart has its own bottom tab.
 const DESTINATIONS = {
   orders: routes.ORDERS, addresses: routes.ADDRESSES, settings: routes.SETTINGS, edit_profile: routes.EDIT_PROFILE,
-  reviews: routes.MY_REVIEWS, rewards: routes.REWARDS, community: routes.COMMUNITY_DELIVERY, help: routes.HELP_SUPPORT,
+  reviews: routes.MY_REVIEWS, rewards: routes.REWARDS, help: routes.HELP_SUPPORT,
 };
 
 export default function MenuScreen({ navigation }) {
