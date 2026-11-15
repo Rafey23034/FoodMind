@@ -24,8 +24,11 @@ function routePoints(points) {
 // Shows the Mapbox map from the API when "mapSource" is given (see orderMapSource in services/api.js).
 // Without it, or if the image fails to load, it falls back to an offline route illustration.
 export default function DeliveryMap({ arrived = false, eta, points, mapSource, live = false }) {
-  const [failedUri, setFailedUri] = useState(null);
-  const showImage = Boolean(mapSource?.uri) && failedUri !== mapSource.uri;
+  const [failedKey, setFailedKey] = useState(null);
+  const token = mapSource?.headers?.Authorization || '';
+  const currentKey = mapSource?.uri ? `${mapSource.uri}|${token}` : null;
+  const showImage = Boolean(currentKey) && failedKey !== currentKey;
+  const mapFailed = Boolean(mapSource?.uri) && failedKey === currentKey;
   const fallback = { placed: [{ x: 287, y: 48 }, { x: 173, y: 149 }, { x: 60, y: 233 }], path: 'M287 48C237 137 237 137 173 149S139 210 60 233' };
   const route = routePoints(points) || fallback;
   const start = route.placed[0];
@@ -33,7 +36,7 @@ export default function DeliveryMap({ arrived = false, eta, points, mapSource, l
   const rider = arrived ? end : route.placed[Math.floor((route.placed.length - 1) * 0.55)];
   const label = arrived ? 'Delivered' : eta || 'On the way';
   return <View style={styles.map}>
-    {showImage ? <Image source={mapSource} style={styles.image} resizeMode="cover" accessibilityLabel="Delivery route map" onError={() => setFailedUri(mapSource.uri)} /> : <Svg width="100%" height="260" viewBox="0 0 360 280" accessibilityLabel="Illustrated delivery route">
+    {showImage ? <Image source={mapSource} style={styles.image} resizeMode="cover" accessibilityLabel="Delivery route map" onError={() => setFailedKey(currentKey)} /> : <Svg width="100%" height="260" viewBox="0 0 360 280" accessibilityLabel="Illustrated delivery route">
       <Rect width="360" height="280" fill={COLORS.mapGround} />
       {[0, 1, 2].flatMap(x => [0, 1, 2].map(y => <Rect key={`${x}-${y}`} x={x * 120 + 7} y={y * 93 + 7} width="101" height="75" rx="8" fill={COLORS.mapBlock} />))}
       <Path d="M116 0V280 M237 0V280 M0 89H360 M0 183H360" stroke={COLORS.mapRoad} strokeWidth="13" />
@@ -45,6 +48,9 @@ export default function DeliveryMap({ arrived = false, eta, points, mapSource, l
       <Circle cx={start.x} cy={start.y} r="5" fill={COLORS.white} />
       <Circle cx={rider.x} cy={rider.y} r="19" fill={COLORS.primary} stroke={COLORS.white} strokeWidth="4" />
     </Svg>}
+    {mapFailed ? <View style={styles.unavailable}>
+      <AppText variant="caption" color={COLORS.textSecondary}>Map unavailable</AppText>
+    </View> : null}
     {live ? <View style={styles.live}><AppText variant="caption" color={COLORS.success} style={styles.bold}>● Live</AppText></View> : null}
     <View style={styles.eta}>
       <AppText variant="caption" color={COLORS.textSecondary}>{arrived ? 'ARRIVED' : 'ESTIMATE'}</AppText>
@@ -57,5 +63,6 @@ const styles = StyleSheet.create({
   image: { width: '100%', height: 260 },
   live: { position: 'absolute', right: 13, top: 13, backgroundColor: COLORS.surface, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
   eta: { position: 'absolute', left: 13, top: 13, maxWidth: '62%', backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: 12 },
+  unavailable: { position: 'absolute', right: 13, bottom: 13, backgroundColor: COLORS.surface, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
   bold: { fontWeight: '700' },
 });

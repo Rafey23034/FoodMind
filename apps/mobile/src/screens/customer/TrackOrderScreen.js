@@ -7,6 +7,7 @@ import AppButton from '../../components/AppButton';
 import DeliveryMap from '../../components/customer/DeliveryMap';
 import OrderProgress from '../../components/customer/OrderProgress';
 import { EmptyState, Notice, ui } from '../../components/customer/ui';
+import { selectUser } from '../../redux/authSlice';
 import { selectMyOrder } from '../../redux/ordersSlice';
 import { advanceOrderDemo } from '../../redux/orderThunks';
 import { refreshOrderTracking } from '../../redux/apiThunks';
@@ -21,6 +22,7 @@ const HEADLINE = { new: 'Your order is confirmed', preparing: 'Your order is bei
 
 export default function TrackOrderScreen({ navigation, route }) {
   const dispatch = useDispatch();
+  useSelector(selectUser);
   const order = useSelector(state => selectMyOrder(state, route.params?.orderId));
   const [contact, setContact] = useState(false);
   const stage = partnerStage(order);
