@@ -4,7 +4,8 @@ import {
   faArrowRightFromBracket, faBagShopping, faBolt, faBox, faCircleCheck, faCircleInfo, faClock, faCrown,
   faFileLines, faGift, faHourglassHalf, faHouse, faLocationDot, faLock, faMagnifyingGlass, faMicrophone,
   faMotorcycle, faPen, faPhone, faRightLeft, faStar, faStore, faTrashCan, faWandMagicSparkles, faWallet,
-  faUtensils, faNoteSticky, faHeadset, faTriangleExclamation,
+  faUtensils, faNoteSticky, faHeadset, faTriangleExclamation, faArrowUp, faPenToSquare, faThumbsUp, faThumbsDown,
+  faChevronDown, faChevronUp,
 } from '@fortawesome/free-solid-svg-icons';
 import { COLORS } from '../theme/colors';
 
@@ -15,7 +16,8 @@ export const ICONS = {
   hourglass: faHourglassHalf, info: faCircleInfo, location: faLocationDot, lock: faLock, logout: faArrowRightFromBracket,
   microphone: faMicrophone, note: faNoteSticky, phone: faPhone, rider: faMotorcycle, search: faMagnifyingGlass,
   star: faStar, store: faStore, swap: faRightLeft, trash: faTrashCan, utensils: faUtensils, wallet: faWallet,
-  warning: faTriangleExclamation,
+  warning: faTriangleExclamation, send: faArrowUp, newChat: faPenToSquare, thumbsUp: faThumbsUp, thumbsDown: faThumbsDown,
+  chevronDown: faChevronDown, chevronUp: faChevronUp,
 };
 
 export default function Icon({ name, size = 16, color = COLORS.primary, style }) {

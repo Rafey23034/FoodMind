@@ -19,6 +19,7 @@ import { dishes, makeCartItem, restaurant, formatPrice } from '../src/data/catal
 import { partnerStage } from '../src/data/partnerOrders';
 import { searchDishes, matchDishes, restaurantMeetsTime } from '../src/data/discovery';
 import { plural } from '../src/utils/format';
+import { CHAT_STARTERS, LOCAL_SUGGESTIONS, contextualPrompt, historyForServer, localChatReply } from '../src/data/aiChat';
 
 jest.mock('../src/utils/partnerMedia', () => ({ choosePartnerDocument: jest.fn(), choosePartnerPhotos: jest.fn(), fileSize: () => '1 KB' }));
 jest.mock('../src/utils/riderMedia', () => ({ chooseRiderDocument: jest.fn(), chooseRiderProof: jest.fn() }));
@@ -245,6 +246,26 @@ test('search, AI suggestions and formatting helpers', () => {
   expect(plural(3, 'item')).toBe('3 items');
 });
 
+test('offline AI chat: starters and suggestions return dishes, and follow-ups keep context', () => {
+  for (const { text } of CHAT_STARTERS) expect(localChatReply(dishes, text).recommendations.length).toBeGreaterThan(0);
+  for (const text of LOCAL_SUGGESTIONS.filter(value => value !== 'Cheaper options')) {
+    expect(localChatReply(dishes, text).recommendations.length).toBeGreaterThan(0);
+  }
+  const history = [{ role: 'user', text: 'creamy pasta' }, { role: 'assistant', text: 'Here.', dishIds: ['creamy-pasta', 'chicken-alfredo', 'white-sauce-pasta'] }];
+  expect(contextualPrompt('under 1000', history)).toBe('pasta under 1000');
+  expect(contextualPrompt('Cheaper options', history, dishes)).toBe('pasta under 1099');
+  expect(localChatReply(dishes, 'Cheaper options', history).recommendations.map(item => item.dishId)).toEqual(['creamy-pasta', 'white-sauce-pasta']);
+  expect(contextualPrompt('burgers', history)).toBe('burgers');
+  expect(localChatReply(dishes, 'hello').recommendations).toEqual([]);
+  expect(localChatReply(dishes, 'pasta under 30 mins').reply).toContain('under 30 minutes');
+  expect(localChatReply(dishes, 'pasta').suggestions[0]).toBe('Cheaper options');
+  expect(historyForServer([
+    { role: 'user', text: 'pasta' },
+    { role: 'assistant', status: 'done', reply: 'Here.', recommendations: [{ dishId: 'creamy-pasta' }] },
+    { role: 'assistant', status: 'loading' },
+  ])).toEqual([{ role: 'user', text: 'pasta' }, { role: 'assistant', text: 'Here.', dishIds: ['creamy-pasta'] }]);
+});
+
 // ---- Every screen renders without stray "\n" / "/n" text ----
 
 function collectText(node, out = []) {
@@ -268,7 +289,7 @@ function screenStore(user) {
 }
 const nav = () => ({ navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn(), reset: jest.fn(), setParams: jest.fn(), canGoBack: () => true });
 const CUSTOMER = ['HomeScreen', 'SearchScreen', 'CartScreen', 'CheckoutScreen', 'DishDetailScreen', 'RestaurantScreen', 'MenuScreen', 'OrdersScreen',
-  'OrderDetailsScreen', 'TrackOrderScreen', 'OrderPlacedScreen', 'RateOrderScreen', 'AIScreen', 'AIRecommendationsScreen', 'CompareDishesScreen',
+  'OrderDetailsScreen', 'TrackOrderScreen', 'OrderPlacedScreen', 'RateOrderScreen', 'AIScreen', 'CompareDishesScreen',
   'NoMatchScreen', 'SettingsScreen', 'EditProfileScreen', 'RewardsScreen', 'CommunityDeliveryScreen', 'RiderOffersScreen', 'DeliveryProgressScreen',
   'MyReviewsScreen', 'HelpSupportScreen', 'AddressBookScreen'].map(name => ['customer', name, () => require(`../src/screens/customer/${name}`).default]);
 const PARTNER = ['PartnerPortalScreen', 'ManageMenu', 'MenuItemEditorScreen', 'PartnerOrdersScreen', 'PartnerNewOrderScreen', 'PartnerPreparingOrderScreen',

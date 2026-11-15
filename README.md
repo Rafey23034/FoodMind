@@ -64,9 +64,9 @@ The demo partner opens the dashboard directly. **Store > Restaurant registration
 | 04 | Home | Existing Home tab |
 | 05 | Search Results | Existing Search tab; natural-language budget filters added |
 | 06 | No Match | New empty-result design in Search; also a registered screen |
-| 07 | AI Assistant | Existing layout; prompt, chips, clear, preferences, and results wired |
-| 08 | AI Recommendations | New; Find My Food in AI Assistant |
-| 09 | Compare Dishes | New; Compare Dishes in recommendations |
+| 07 | AI Assistant | Chat screen: starter prompts, follow-up chips, new chat |
+| 08 | AI Recommendations | Shown inside the chat as a titled dish grid with Show more and feedback |
+| 09 | Compare Dishes | Compare on any chat result with two or more dishes |
 | 10 | Restaurant | Existing restaurant page |
 | 11 | Dish Details | Existing dish page |
 | 12 | Cart | Cart bottom tab; existing cart and pricing |
@@ -134,7 +134,8 @@ Partner tabs own the main portal screens and the preparation workflow. Registrat
 
 - **Ordering:** sign in as customer, add a saved address, browse a dish, add it to cart, check out, and place an order. Use Track My Order to view its status.
 - **Tracking and reviews:** the explicit `Demo:` button advances a saved order through preparation, dispatch, and delivery. After delivery, rate the order. One completion earns 20 points; its first review earns another 20. Editing a review cannot earn the reward twice.
-- **Comparison:** Home > FoodMind AI, choose the creamy pasta sample or type a request, then Find My Food. Open Compare Dishes, change either dish if desired, and add the preferred dish to the existing cart.
+- **AI chat:** Home > FoodMind AI, tap a starter or type a request. Results appear in the conversation; keep asking ("cheaper options", "something spicy instead") and each answer builds on the earlier ones. Tap a dish to open it and come back to the same chat, or use the pencil icon for a new chat.
+- **Comparison:** in the AI chat, tap Compare above a result grid. Change either dish if desired, and add the preferred dish to the existing cart.
 - **No match:** search for `Vegan sushi under Rs. 300`. Reset Filters or continue into AI Assistant.
 - **Community delivery:** enter any shop name, pickup address, item names, quantities, estimated unit prices, and delivery address. Compare sample rider offers, choose one, and step through the demo delivery. Saved requests can be resumed from Community Delivery.
 - **Profile/support:** edit your name, phone, location, and photo; inspect reviews and points; search/expand help articles; save a support report locally.
@@ -147,7 +148,7 @@ Partner tabs own the main portal screens and the preparation workflow. Registrat
 
 ## AI recommendation service
 
-FoodMind AI sends recommendation requests to the local Node service in `apps/api/`, which calls Gemini. The mobile app never receives the Gemini key. To run it locally:
+FoodMind AI is a chat. Each message goes to `POST /api/ai/chat` on the local Node service in `apps/api/` with the current menu and the earlier turns, so follow-ups keep their context. The service calls Gemini and returns a reply, a results title, up to 8 dish IDs with reasons, and up to 3 follow-up suggestions. The mobile app never receives the Gemini key. To run it locally:
 
 ```powershell
 Copy-Item apps/api/.env.example apps/api/.env
@@ -155,13 +156,13 @@ Copy-Item apps/api/.env.example apps/api/.env
 npm run api
 ```
 
-For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this service before starting Expo. If the service cannot be reached, the app deliberately falls back to its existing local menu matcher. The service validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
+For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this service before starting Expo. If the service cannot be reached, the chat says so and falls back to the local menu matcher, which still carries the dish from earlier turns ("under 1000" after "pasta" searches pasta under 1,000). `npm run test:api` runs the service's tests with a stand-in for Gemini. The service validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
 
 ## Frontend-only boundaries
 
 No production backend, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. The local AI recommendation service is the exception: it calls Gemini when configured, and falls back to deterministic matching against the existing available menu if unavailable. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
 
-Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Voice input, password changes, and rider calls show frontend availability messages.
+Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Password changes and rider calls show frontend availability messages.
 
 Partner profiles, document references, gallery photos, application status, online status, and sample orders use `foodmind_partner_features_v1`, separated by sign-in email. Selected files are copied into local app storage; nothing is uploaded. Approval, rider contact, customer notifications, and sample rider assignment are frontend previews. Existing cart, orders, menu, address, and customer storage keys are preserved.
 
@@ -179,9 +180,9 @@ npx expo export --platform android --output-dir tmp/android-export
 Pop-Location
 ```
 
-The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, AI-to-cart navigation, checkout validation/confirmation, review submission, rider selection, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.
+The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, multi-turn AI chat (context, offline fallback, dish and compare navigation), checkout validation/confirmation, review submission, rider selection, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.
 
-The current version is checked with **156 automated tests**, the source check (130 JavaScript files), and Android (Hermes) and web exports. The tests cover per-account cart and order isolation, checkout validation against the live menu and restaurant availability, safe storage loading (a damaged entry is backed up and never wipes the rest), session restore, one shared order lifecycle for customer and partner, rider onboarding and rating fixes, and a scan of all 65 screens for stray "\n" or "/n" text.
+The current version is checked with **157 app tests and 6 API tests**, the source check (135 JavaScript files), and Android (Hermes) and web exports. The tests cover per-account cart and order isolation, checkout validation against the live menu and restaurant availability, safe storage loading (a damaged entry is backed up and never wipes the rest), session restore, one shared order lifecycle for customer and partner, rider onboarding and rating fixes, and a scan of all 65 screens for stray "\n" or "/n" text.
 
 The dependency audit currently reports inherited Expo CLI advisories involving `node-forge` and Zod. Its suggested forced Expo downgrade is incompatible with this SDK and was not applied. This is a local frontend prototype; dependency review is still needed before production deployment.
 

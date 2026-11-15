@@ -21,7 +21,6 @@ export const routes = {
   MANAGE_MENU: 'ManageMenu',
   EDIT_MENU_ITEM: 'EditMenuItem',
   NO_MATCH: 'NoMatch',
-  AI_RECOMMENDATIONS: 'AIRecommendations',
   COMPARE_DISHES: 'CompareDishes',
   ORDER_PLACED: 'OrderPlaced',
   TRACK_ORDER: 'TrackOrder',

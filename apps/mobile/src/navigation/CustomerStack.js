@@ -14,7 +14,6 @@ import CheckoutScreen from '../screens/customer/CheckoutScreen';
 import AddressBookScreen from '../screens/customer/AddressBookScreen';
 import SettingsScreen from '../screens/customer/SettingsScreen';
 import NoMatchScreen from '../screens/customer/NoMatchScreen';
-import AIRecommendationsScreen from '../screens/customer/AIRecommendationsScreen';
 import CompareDishesScreen from '../screens/customer/CompareDishesScreen';
 import OrderPlacedScreen from '../screens/customer/OrderPlacedScreen';
 import TrackOrderScreen from '../screens/customer/TrackOrderScreen';
@@ -36,7 +35,6 @@ const sharedScreens = [
   [routes.ADDRESSES, AddressBookScreen],
   [routes.SETTINGS, SettingsScreen],
   [routes.NO_MATCH, NoMatchScreen],
-  [routes.AI_RECOMMENDATIONS, AIRecommendationsScreen],
   [routes.COMPARE_DISHES, CompareDishesScreen],
   [routes.ORDER_PLACED, OrderPlacedScreen],
   [routes.TRACK_ORDER, TrackOrderScreen],

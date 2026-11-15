@@ -1,3 +1,6 @@
+// Dish words the matcher treats as "must be this kind of food".
+export const FOOD_TERMS = ['pasta', 'burger', 'pizza', 'biryani', 'karahi', 'wrap', 'fries', 'sushi', 'bowl', 'salad'];
+
 // Deterministic menu matching for the frontend prototype. Replace with an API later.
 export function matchDishes(items, prompt = '', preferences = []) {
   const query = prompt.toLowerCase();
@@ -10,8 +13,7 @@ export function matchDishes(items, prompt = '', preferences = []) {
   const words = query.replace(/rs\.?/g, '').split(/[^a-z]+/).filter(word => word.length > 2);
   const stop = new Set(['find', 'food', 'some', 'under', 'below', 'budget', 'less', 'than', 'highly', 'rated', 'with', 'and', 'the', 'for', 'please', 'want', 'nearby', 'delivered', 'within', 'mins', 'minutes']);
   const terms = words.filter(word => !stop.has(word));
-  const foodTerms = ['pasta', 'burger', 'pizza', 'biryani', 'karahi', 'wrap', 'fries', 'sushi', 'bowl', 'salad'];
-  const wanted = foodTerms.filter(word => query.includes(word));
+  const wanted = FOOD_TERMS.filter(word => query.includes(word));
   return items.filter(dish => {
     const description = `${dish.name} ${dish.category} ${dish.tags.join(' ')}`.toLowerCase();
     if (dish.price > budget || dish.rating < minRating) return false;

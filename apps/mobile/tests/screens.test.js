@@ -15,7 +15,6 @@ import { riderOffers } from '../src/data/riderOffers';
 import { routes } from '../src/navigation/routes';
 import AIScreen from '../src/screens/customer/AIScreen';
 import CheckoutScreen from '../src/screens/customer/CheckoutScreen';
-import AIRecommendationsScreen from '../src/screens/customer/AIRecommendationsScreen';
 import RateOrderScreen from '../src/screens/customer/RateOrderScreen';
 import RiderOffersScreen from '../src/screens/customer/RiderOffersScreen';
 import CommunityDeliveryScreen from '../src/screens/customer/CommunityDeliveryScreen';
@@ -45,7 +44,7 @@ function press(tree, label) {
 async function cleanup(tree) { await act(async () => tree.unmount()); }
 
 test.each([
-  'NoMatchScreen', 'AIRecommendationsScreen', 'CompareDishesScreen', 'OrderPlacedScreen', 'TrackOrderScreen',
+  'NoMatchScreen', 'AIScreen', 'CompareDishesScreen', 'OrderPlacedScreen', 'TrackOrderScreen',
   'OrderDetailsScreen', 'RateOrderScreen', 'RewardsScreen', 'CommunityDeliveryScreen', 'RiderOffersScreen',
   'DeliveryProgressScreen', 'EditProfileScreen', 'MyReviewsScreen', 'HelpSupportScreen',
 ])('%s renders with saved frontend data', async name => {
@@ -62,26 +61,79 @@ test.each(['OrderPlacedScreen', 'TrackOrderScreen', 'OrderDetailsScreen', 'RateO
   await cleanup(tree);
 });
 
-test('AI request connects to recommendations with the entered prompt', async () => {
+// ---- FoodMind AI chat ----
+
+const allText = tree => JSON.stringify(tree.toJSON());
+const chatInput = tree => tree.root.findAllByType(TextInput).find(element => element.props.accessibilityLabel === 'Message FoodMind AI');
+const pressLabel = (tree, label) => act(async () => tree.root.findAll(element => element.props.accessibilityLabel === label && typeof element.props.onPress === 'function')[0].props.onPress());
+async function say(tree, text) {
+  await act(async () => chatInput(tree).props.onChangeText(text));
+  await pressLabel(tree, 'Send message');
+}
+const aiReply = body => ({ ok: true, json: async () => body });
+
+test('the AI chat stays on one screen and shows results in the conversation', async () => {
+  global.fetch.mockResolvedValueOnce(aiReply({ reply: 'Pasta under Rs. 1,100 gives you a few choices.', title: 'Pasta under Rs. 1,100',
+    recommendations: [{ dishId: 'creamy-pasta', reason: 'Creamy' }, { dishId: 'white-sauce-pasta', reason: 'Cheaper' }, { dishId: 'not-on-menu', reason: 'x' }],
+    suggestions: ['Something spicier'] }));
   const { tree, navigation } = await mount(AIScreen);
-  await act(async () => tree.root.findByType(TextInput).props.onChangeText('creamy pasta under Rs. 1200'));
-  await press(tree, 'Find My Food  →');
-  expect(navigation.navigate).toHaveBeenCalledWith(routes.AI_RECOMMENDATIONS, { prompt: 'creamy pasta under Rs. 1200', preferences: [] });
+  await say(tree, 'pasta under 1100');
+  expect(navigation.navigate).not.toHaveBeenCalled();
+  const text = allText(tree);
+  expect(text).toContain('pasta under 1100');
+  expect(text).toContain('Pasta under Rs. 1,100');
+  expect(text).toContain('Creamy Chicken Pasta');
+  expect(text).toContain('White Sauce Pasta');
+  expect(text).toContain('Something spicier');
+  expect(chatInput(tree).props.value).toBe('');
+
+  // The follow-up carries the earlier turns, and both answers stay on screen.
+  global.fetch.mockResolvedValueOnce(aiReply({ reply: 'The White Sauce Pasta is the cheaper one.', title: 'Cheaper pasta', recommendations: [{ dishId: 'white-sauce-pasta', reason: 'Rs. 950' }] }));
+  await say(tree, 'cheaper ones');
+  const body = JSON.parse(global.fetch.mock.calls[1][1].body);
+  expect(body.prompt).toBe('cheaper ones');
+  expect(body.history).toEqual([
+    { role: 'user', text: 'pasta under 1100' },
+    { role: 'assistant', text: 'Pasta under Rs. 1,100 gives you a few choices.', dishIds: ['creamy-pasta', 'white-sauce-pasta', 'not-on-menu'] },
+  ]);
+  expect(allText(tree)).toContain('Pasta under Rs. 1,100 gives you a few choices.');
+  expect(allText(tree)).toContain('The White Sauce Pasta is the cheaper one.');
   await cleanup(tree);
 });
 
-test('recommendations add the matching dish to the existing cart', async () => {
-  const { tree, store, navigation } = await mount(AIRecommendationsScreen);
-  await press(tree, '+  Add to Cart');
-  expect(store.getState().cart.items[0].dishId).toBe('creamy-pasta');
-  expect(navigation.navigate).toHaveBeenCalledWith(routes.CART, { screen: routes.CART_ROOT, pop: true });
+test('results open the dish and compare screens, and a new chat clears the conversation', async () => {
+  const { tree, navigation } = await mount(AIScreen);
+  await say(tree, 'creamy pasta');
+  const card = tree.root.findAll(element => element.props.accessibilityLabel === 'Creamy Chicken Pasta, Rs. 1,050' && typeof element.props.onPress === 'function')[0];
+  await act(async () => card.props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledWith(routes.DISH_DETAIL, { dishId: 'creamy-pasta' });
+  await press(tree, 'Compare');
+  expect(navigation.navigate).toHaveBeenCalledWith(routes.COMPARE_DISHES, { dishIds: expect.arrayContaining(['creamy-pasta']) });
+  await pressLabel(tree, 'Start a new chat');
+  expect(allText(tree)).toContain('Let dinner find you');
+  expect(allText(tree)).not.toContain('creamy pasta');
   await cleanup(tree);
 });
 
-test('an unmatched AI request can reset to the unfiltered search screen', async () => {
-  const { tree, navigation } = await mount(AIRecommendationsScreen, setupStore(), { prompt: 'Vegan sushi under Rs. 300', preferences: ['fast'] });
-  await press(tree, 'Reset Filters');
-  expect(navigation.navigate).toHaveBeenCalledWith(routes.SEARCH, { screen: routes.SEARCH_ROOT, params: { reset: expect.any(Number) }, pop: true });
+test('without the AI service the chat uses the menu and remembers what was asked', async () => {
+  const { tree } = await mount(AIScreen);
+  await say(tree, 'pasta');
+  expect(allText(tree)).toContain('FoodMind AI is offline');
+  expect(allText(tree)).toContain('Chicken Alfredo');
+  await say(tree, 'under 1000');
+  // "under 1000" builds on "pasta": the second answer lists only White Sauce Pasta (Rs. 950).
+  const cards = name => tree.root.findAll(element => element.props.accessibilityLabel?.startsWith?.(`${name},`) && typeof element.props.onPress === 'function').length;
+  expect(cards('White Sauce Pasta')).toBe(2);
+  expect(cards('Chicken Alfredo')).toBe(1);
+  expect(allText(tree)).toContain('I found 1 dish on the menu for that');
+  await cleanup(tree);
+});
+
+test('Ask AI from search sends its request into the chat once', async () => {
+  const { tree } = await mount(AIScreen, setupStore(), { prompt: 'Vegan sushi under Rs. 300' });
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(allText(tree)).toContain('Vegan sushi under Rs. 300');
+  expect(allText(tree)).toContain("I couldn't find anything on the menu");
   await cleanup(tree);
 });
 

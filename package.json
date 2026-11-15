@@ -10,9 +10,10 @@
     "android": "npm run android --workspace @foodmind/mobile",
     "android:setup": "npm run android:setup --workspace @foodmind/mobile",
     "web": "npm run web --workspace @foodmind/mobile",
-    "test": "npm run test --workspace @foodmind/mobile",
+    "test": "npm run test --workspace @foodmind/mobile && npm run test --workspace @foodmind/api",
     "check": "npm run check --workspace @foodmind/mobile",
     "api": "npm run start --workspace @foodmind/api",
-    "ai:server": "npm run start --workspace @foodmind/api"
+    "ai:server": "npm run start --workspace @foodmind/api",
+    "test:api": "npm run test --workspace @foodmind/api"
   }
 }
