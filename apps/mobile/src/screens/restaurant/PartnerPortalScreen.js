@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { restaurant, formatPrice, findDish } from '../../data/catalog';
 import { foodPhotos, getFoodPhoto } from '../../data/foodPhotos';
 import { selectMenuItems } from '../../redux/menuSlice';
-import { selectPartnerOrders, setPartnerOnline } from '../../redux/partnerSlice';
+import { selectPartnerOrders } from '../../redux/partnerSlice';
+import { setPartnerAvailability } from '../../redux/apiThunks';
 import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
@@ -78,7 +79,7 @@ export default function PartnerPortalScreen({
     onOpenOrder, onViewAllOrders, onOpenStore, onCustomerPreview, onDemoOrders,
 }) {
     const dispatch = useDispatch();
-    const { profile, online: isOnline, userKey, demoOrders } = usePartner();
+    const { profile, online: isOnline, demoOrders } = usePartner();
     const allOrders = useSelector(selectPartnerOrders);
     const menuItems = useSelector(selectMenuItems);
     const reviews = usePartnerReviews();
@@ -122,7 +123,7 @@ export default function PartnerPortalScreen({
                         <AppText style={styles.medium}>{isOnline ? 'Accepting orders' : 'Not accepting orders'}</AppText>
                         <AppText variant="caption" color={COLORS.textSecondary}>{isOnline ? 'Customers can check out now' : 'Customers can browse but not order'}</AppText>
                     </View>
-                    <Switch value={isOnline} onValueChange={online => dispatch(setPartnerOnline({ userKey, online }))}
+                    <Switch value={isOnline} onValueChange={online => dispatch(setPartnerAvailability(online))}
                         accessibilityLabel="Accepting orders" trackColor={{ false: COLORS.border, true: COLORS.success }} thumbColor={COLORS.white} />
                 </AppCard>
 

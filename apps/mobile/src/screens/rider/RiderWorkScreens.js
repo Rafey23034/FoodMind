@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Switch, View } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faMotorcycle, faLocationDot, faChevronRight, faClock, faWallet, faStar, faFileLines, faHeadset } from '@fortawesome/free-solid-svg-icons';
 import RiderLayout from '../../components/rider/RiderLayout';
@@ -9,10 +9,11 @@ import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
 import AppInput from '../../components/AppInput';
 import { Chip, EmptyState, Notice, Stars, ui } from '../../components/customer/ui';
-import { setRiderOnline, submitRiderBid, selectRiderDemoBid, acceptRiderBid, declineRiderBid, withdrawRiderBid, rateRiderDelivery } from '../../redux/riderSlice';
+import { submitRiderBid, selectRiderDemoBid, acceptRiderBid, declineRiderBid, withdrawRiderBid, rateRiderDelivery } from '../../redux/riderSlice';
+import { respondToRiderOffer, setRiderAvailability, syncRiderData } from '../../redux/apiThunks';
 import { riderRequestById, riderRequests } from '../../data/riderRequests';
 import { formatPrice } from '../../data/catalog';
-import { logout } from '../../redux/authSlice';
+import { signOut } from '../../redux/session';
 import { routes } from '../../navigation/routes';
 import { openRiderJob, openRiderTab } from '../../navigation/riderNavigation';
 import { confirmLogout } from '../../utils/confirm';
@@ -23,15 +24,34 @@ const routeToRequest = route => riderRequestById(route?.params?.requestId);
 export function RiderJobsScreen({ navigation }) {
   const dispatch = useDispatch();
   const rider = useRider();
+  const apiSession = useSelector(state => Boolean(state.auth.user?.accessToken || state.auth.user?.refreshToken));
   const [filter, setFilter] = useState('All');
+  useEffect(() => {
+    if (!apiSession) return undefined;
+    dispatch(syncRiderData());
+    const timer = setInterval(() => dispatch(syncRiderData()), 10000);
+    return () => clearInterval(timer);
+  }, [apiSession, dispatch]);
   let visible = riderRequests;
   if (filter === 'Under 3 km') visible = visible.filter(item => item.distanceKm < 3);
   if (filter === 'Highest fee') visible = [...visible].sort((a, b) => b.deliveryFee - a.deliveryFee);
   const active = rider.activeDelivery;
+  const offer = rider.apiOffer;
+  function respond(action) {
+    dispatch(respondToRiderOffer(offer.id, action)).then(result => {
+      if (result.ok && result.delivery) openRiderJob(navigation, routes.RIDER_ACTIVE_DELIVERY, { deliveryId: result.delivery.id });
+    });
+  }
   return <RiderLayout navigation={navigation} hasTabs onBack={false} title="Nearby Requests" subtitle="Choose a delivery job to place a bid">
     <View style={[ui.card, ui.between]}><View style={ui.flex}><AppText style={ui.bold}>{rider.online ? 'You are online' : 'You are offline'}</AppText><AppText variant="caption" color={COLORS.textSecondary}>{rider.online ? 'Nearby requests are shown below' : 'Go online to see and bid on requests'}</AppText></View>
-      <Switch value={rider.online} onValueChange={online => dispatch(setRiderOnline({ userKey: rider.userKey, online }))} trackColor={{ true: COLORS.success }} accessibilityLabel="Available for delivery requests" />
+      <Switch value={rider.online} onValueChange={online => dispatch(setRiderAvailability(online))} trackColor={{ true: COLORS.success }} accessibilityLabel="Available for delivery requests" />
     </View>
+    {offer ? <View style={[ui.card, styles.activeCard]}>
+      <View style={ui.between}><AppText variant="caption" color={COLORS.warning}>DIRECT DELIVERY OFFER</AppText><AppText variant="caption" color={COLORS.textSecondary}>{offer.distanceKm} km</AppText></View>
+      <AppText style={ui.bold}>{offer.restaurantName}</AppText>
+      <AppText variant="small" color={COLORS.textSecondary}>{offer.restaurantAddress || 'Pickup at the restaurant'}</AppText>
+      <View style={ui.row}><AppButton title="Accept" style={ui.flex} onPress={() => respond('accept')} /><AppButton title="Decline" variant="outline" style={ui.flex} onPress={() => respond('decline')} /></View>
+    </View> : null}
     {active ? <Pressable accessibilityRole="button" onPress={() => openRiderJob(navigation, routes.RIDER_ACTIVE_DELIVERY, { deliveryId: active.id })} style={[ui.card, styles.activeCard]}>
       <View style={ui.between}><AppText variant="caption" color={COLORS.success}>ACTIVE DELIVERY · {active.status.replace('-', ' ').toUpperCase()}</AppText><AppText color={COLORS.primary}>›</AppText></View>
       <AppText style={ui.bold}>{active.restaurant} → {active.customer}</AppText><AppText variant="small" color={COLORS.textSecondary}>{formatPrice(active.earnings)} · Resume route</AppText>
@@ -220,7 +240,7 @@ export function RiderProfileScreen({ navigation }) {
     {row(faMotorcycle, 'Documents & Vehicle', 'CNIC, licence and vehicle details', () => navigation.navigate(routes.RIDER_DOCUMENTS_VEHICLE))}
     {row(faWallet, 'Payout Settings', 'Local cash earning preview', () => openRiderTab(navigation, routes.RIDER_EARNINGS))}
     {row(faHeadset, 'Help & Support', 'Rider help and safety', () => navigation.navigate(routes.RIDER_SUPPORT))}
-    <AppButton title="Log Out" icon="logout" variant="outline" onPress={() => confirmLogout(() => dispatch(logout()))} />
+    <AppButton title="Log Out" icon="logout" variant="outline" onPress={() => confirmLogout(() => dispatch(signOut()))} />
     {rider.application.demoApproval ? <Notice title="Rider demo account">Example requests and sample earnings are labelled in the rider screens.</Notice> : null}
   </RiderLayout>;
 }

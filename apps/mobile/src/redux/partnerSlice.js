@@ -1,7 +1,9 @@
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import { restaurant } from '../data/catalog';
+import { api, getApiSession } from '../services/api';
 import { samplePartnerOrders, updatedPartnerOrder, delayedOrder, canTransitionOrder, validateRestaurant } from '../data/partnerOrders';
-import { updatePartnerOrder, delayPartnerOrder } from './ordersSlice';
+import { updatePartnerOrder, delayPartnerOrder, replaceOrder } from './ordersSlice';
+import { apiOrderToLocal } from './apiOrderMap';
 import { userKey } from './userKey';
 
 const EMPTY = Object.freeze({ profile: {}, documents: {}, photos: [], application: {}, online: true, demoOrders: [] });
@@ -73,14 +75,35 @@ export const selectPartnerOrders = createSelector(
 // The restaurant's own online switch decides whether customers can check out.
 export const selectRestaurantOnline = state => state.partner?.byUser?.[userKey(restaurant.ownerEmail)]?.online ?? true;
 
+const hasApiSession = () => {
+  const tokens = getApiSession();
+  return Boolean(tokens.accessToken || tokens.refreshToken);
+};
+function apiTransition(order, stage, prepMinutes) {
+  if (!order.source || order.source !== 'api' || !hasApiSession()) return null;
+  if (stage === 'preparing') return api.partner.accept(order.id, prepMinutes);
+  if (stage === 'ready') return api.partner.ready(order.id);
+  if (stage === 'rejected') return api.partner.reject(order.id);
+  return null;
+}
 export function transitionPartnerOrder({ id, stage, prepMinutes = 20 }) {
   return (dispatch, getState) => {
     const state = getState();
     const order = selectPartnerOrders(state).find(value => value.id === id);
     if (!order || !canTransitionOrder(order, stage)) return false;
     const payload = { id, stage, prepMinutes, at: new Date().toISOString() };
-    if (order.isDemo) dispatch(transitionPartnerExample({ ...payload, userKey: partnerKey(state.auth.user) }));
-    else dispatch(updatePartnerOrder(payload));
+    if (order.isDemo) {
+      dispatch(transitionPartnerExample({ ...payload, userKey: partnerKey(state.auth.user) }));
+      return true;
+    }
+    const request = apiTransition(order, stage, prepMinutes);
+    if (order.source === 'api') {
+      if (!request) return false;
+      return request
+        .then(({ order: updated }) => { dispatch(replaceOrder(apiOrderToLocal(updated))); return true; })
+        .catch(() => false);
+    }
+    dispatch(updatePartnerOrder(payload));
     return true;
   };
 }
@@ -90,7 +113,11 @@ export function delayPartnerPickup(id) {
     const order = selectPartnerOrders(state).find(value => value.id === id);
     if (!order) return;
     if (order.isDemo) dispatch(delayPartnerExample({ userKey: partnerKey(state.auth.user), id }));
-    else dispatch(delayPartnerOrder({ id }));
+    else if (order.source === 'api' && hasApiSession()) {
+      return api.partner.delay(order.id, 5)
+        .then(({ order: updated }) => { dispatch(replaceOrder(apiOrderToLocal(updated))); return true; })
+        .catch(() => false);
+    } else dispatch(delayPartnerOrder({ id }));
   };
 }
 export function isRestaurantOwner(user) {

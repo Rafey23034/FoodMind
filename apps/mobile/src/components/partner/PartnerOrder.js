@@ -37,7 +37,8 @@ export function PartnerOrderSummary({ order, workflow = true }) {
     <View style={ui.card}>{order.items.map(item => <View style={ui.row} key={item.id}>
       <FoodThumbnail dishId={item.dishId || item.id} symbol={item.symbol} size={48} />
       <View style={ui.flex}><AppText variant="small" style={ui.bold}>{item.quantity} × {item.name}</AppText><AppText variant="caption" color={COLORS.textSecondary}>{item.option || item.subtitle || 'Regular'}</AppText></View>
-    </View>)}<View style={ui.line} /><BillRow label="Order total" value={formatPrice(order.total)} bold /></View>
+    </View>)}<View style={ui.line} /><BillRow label="Order total" value={formatPrice(order.total)} bold />
+      {order.pickupCode && ['preparing', 'ready'].includes(partnerStage(order)) ? <BillRow label="Rider pickup code" value={order.pickupCode} bold /> : null}</View>
     {order.notes ? <View style={[ui.card, ui.row]}><Icon name="note" size={15} /><AppText variant="small" style={ui.flex}>{order.notes}</AppText></View> : null}
   </>;
 }

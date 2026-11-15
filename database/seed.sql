@@ -1,6 +1,5 @@
 -- FoodMind demo data (generated from src/data/foodmind.json). Run after schema.sql.
 -- Every demo account uses the password 123456.
-USE foodmind;
 SET @app_user_id = NULL;
 
 INSERT INTO users (id, role, full_name, email, phone, password_hash) VALUES

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { routes } from './routes';
-import { logout } from '../redux/authSlice';
+import { signOut } from '../redux/session';
 import { transitionPartnerOrder, loadPartnerExamples } from '../redux/partnerSlice';
 import { orderDestination, partnerStage } from '../data/partnerOrders';
 import { CustomerPreviewContext } from './PreviewContext';
@@ -58,7 +58,7 @@ function OverviewTab({ navigation }) {
   }
   return <PartnerPortalScreen
     onManageMenu={() => navigation.navigate(routes.MANAGE_MENU)}
-    onSignOut={() => confirmLogout(() => dispatch(logout()))}
+    onSignOut={() => confirmLogout(() => dispatch(signOut()))}
     onOpenOrder={openOrder}
     onViewAllOrders={() => navigation.navigate(routes.PARTNER_ORDERS, { screen: routes.PARTNER_ORDERS_LIST, pop: true })}
     onOpenStore={() => navigation.navigate(routes.PARTNER_STORE)}

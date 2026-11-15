@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDispatch } from 'react-redux';
 import ProfileScreen from './ProfileScreen';
-import { logout } from '../../redux/authSlice';
+import { signOut } from '../../redux/session';
 import { routes } from '../../navigation/routes';
 import { confirmLogout } from '../../utils/confirm';
 
@@ -14,7 +14,7 @@ const DESTINATIONS = {
 export default function MenuScreen({ navigation }) {
   const dispatch = useDispatch();
   function handleMenuItem(id) {
-    if (id === 'logout') confirmLogout(() => dispatch(logout()));
+    if (id === 'logout') confirmLogout(() => dispatch(signOut()));
     else if (DESTINATIONS[id]) navigation.navigate(DESTINATIONS[id]);
   }
   return <ProfileScreen navigation={navigation} onItemPress={handleMenuItem} />;

@@ -11,6 +11,7 @@ import { customerKey, saveReview, selectCustomer } from '../../redux/customerSli
 import { COLORS } from '../../theme/colors';
 import { routes } from '../../navigation/routes';
 import { selectMyOrder } from '../../redux/ordersSlice';
+import { saveApiReview } from '../../redux/apiThunks';
 
 export default function RateOrderScreen({ navigation, route }) {
   const dispatch = useDispatch();
@@ -38,6 +39,13 @@ export default function RateOrderScreen({ navigation, route }) {
       restaurant: order.restaurant, rating, restaurantRating, riderRating, tags,
       text: text.trim(), createdAt: existing?.createdAt || new Date().toISOString(),
     } }));
+    if (order.source === 'api' && !existing) {
+      dispatch(saveApiReview(order.id, {
+        restaurantRating: restaurantRating || rating,
+        riderRating,
+        comment: text.trim(),
+      }));
+    }
     navigation.replace(routes.MY_REVIEWS);
   }
   return <ScreenLayout navigation={navigation} title="Rate Your Order" subtitle={order ? `${order.restaurant} · Order #${order.id.slice(-6)}` : ''}

@@ -14,8 +14,9 @@ import mysql.connector
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 CONFIG = dict(user=os.environ.get('MYSQL_USER', 'root'), password=os.environ.get('MYSQL_PASSWORD', ''),
-              host=os.environ.get('MYSQL_HOST', 'localhost'), database='foodmind',
-              unix_socket=os.environ.get('MYSQL_SOCKET', '/var/run/mysqld/mysqld.sock'), autocommit=True)
+              host=os.environ.get('MYSQL_HOST', 'localhost'), database='foodmind', autocommit=True)
+if os.environ.get('MYSQL_SOCKET'):
+    CONFIG['unix_socket'] = os.environ['MYSQL_SOCKET']
 results = []
 
 

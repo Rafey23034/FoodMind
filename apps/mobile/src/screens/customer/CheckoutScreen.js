@@ -23,18 +23,25 @@ export default function CheckoutScreen({ navigation }) {
   const online = useSelector(selectRestaurantOnline);
   const { subtotal, deliveryFee, platformFee, cartTotal } = useSelector(selectBill);
   const [error, setError] = useState('');
+  const [placing, setPlacing] = useState(false);
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  function handlePlaceOrder() {
-    const result = dispatch(checkout());
-    if (!result.ok) { setError(result.error); return; }
-    setError('');
-    navigation.reset({ index: 1, routes: [{ name: routes.CART_ROOT }, { name: routes.ORDER_PLACED, params: { orderId: result.orderId } }] });
+  async function handlePlaceOrder() {
+    if (placing) return;
+    setPlacing(true);
+    try {
+      const result = await dispatch(checkout());
+      if (!result.ok) { setError(result.error); return; }
+      setError('');
+      navigation.reset({ index: 1, routes: [{ name: routes.CART_ROOT }, { name: routes.ORDER_PLACED, params: { orderId: result.orderId } }] });
+    } finally {
+      setPlacing(false);
+    }
   }
 
   return (
     <ScreenFrame navigation={navigation} title="Checkout" error={error}
-      footer={<AppButton title={`Place Order  |  ${formatPrice(cartTotal)}`} onPress={handlePlaceOrder} disabled={lines.length === 0 || !online} />}>
+      footer={<AppButton title={placing ? 'Placing order…' : `Place Order  |  ${formatPrice(cartTotal)}`} onPress={handlePlaceOrder} disabled={placing || lines.length === 0 || !online} />}>
       {!online ? <Notice warning icon="clock" title={`${restaurant.name} is not accepting orders right now`}>Please try again when the restaurant is back online.</Notice> : null}
       <View style={ui.card}>
         <View style={ui.between}>

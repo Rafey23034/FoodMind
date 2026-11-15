@@ -4,6 +4,7 @@ import { selectBill, selectCartLines, syncCart, clearCart } from './cartSlice';
 import { selectDeliveryAddress } from './addressesSlice';
 import { selectRestaurantOnline } from './partnerSlice';
 import { placeOrder, updatePartnerOrder, cancelOrder, selectMyOrders } from './ordersSlice';
+import { cancelApiOrder, hasApiSession, placeApiOrder } from './apiThunks';
 import { earnOrderPoints } from './customerSlice';
 import { userKey } from './userKey';
 
@@ -28,20 +29,33 @@ export function checkout({ at = new Date().toISOString() } = {}) {
     const address = selectDeliveryAddress(state);
     if (!address) return { ok: false, error: 'Please choose a delivery address.' };
     const { subtotal, deliveryFee, platformFee, cartTotal } = selectBill(state);
-    const order = {
-      id: `FM${Date.parse(at) || Date.now()}`,
-      restaurant: restaurant.name,
-      status: 'Confirmed', partnerStage: 'new',
-      items: lines.map(({ available, priceChanged, previousPrice, ...item }) => item),
-      customerEmail: userKey(user), customerName: user?.name || 'FoodMind diner',
-      address: `${address.street}, ${address.city}`, addressLabel: address.label,
-      payment: 'cash', isPaid: false,
-      total: cartTotal, subtotal, deliveryFee, platformFee,
-      createdAt: at,
-    };
-    dispatch(placeOrder(order));
-    dispatch(clearCart());
-    return { ok: true, orderId: order.id };
+
+    function placeLocalOrder() {
+      const order = {
+        id: `FM${Date.parse(at) || Date.now()}`,
+        restaurant: restaurant.name,
+        status: 'Confirmed', partnerStage: 'new',
+        items: lines.map(({ available, priceChanged, previousPrice, ...item }) => item),
+        customerEmail: userKey(user), customerName: user?.name || 'FoodMind diner',
+        address: `${address.street}, ${address.city}`, addressLabel: address.label,
+        payment: 'cash', isPaid: false,
+        total: cartTotal, subtotal, deliveryFee, platformFee,
+        createdAt: at,
+      };
+      dispatch(placeOrder(order));
+      dispatch(clearCart());
+      return { ok: true, orderId: order.id };
+    }
+
+    if (hasApiSession()) {
+      return placeApiOrder(dispatch, getState, { lines, cartTotal }).catch(error => {
+        // Keep the demo usable offline, but show real validation errors from the API.
+        if (error?.status === 0) return placeLocalOrder();
+        return { ok: false, error: error?.message || 'Could not place your order. Please try again.' };
+      });
+    }
+
+    return placeLocalOrder();
   };
 }
 
@@ -51,7 +65,7 @@ export function advanceOrderDemo(orderId) {
   return (dispatch, getState) => {
     const order = selectMyOrders(getState()).find(item => item.id === orderId);
     const next = NEXT_STAGE[partnerStage(order)];
-    if (!order || !next) return false;
+    if (!order || order.source === 'api' || !next) return false;
     const at = new Date().toISOString();
     dispatch(updatePartnerOrder({ id: orderId, stage: next, prepMinutes: 20, at }));
     if (next === 'delivered') dispatch(earnOrderPoints({ userKey: userKey(order.customerEmail), orderId, createdAt: at }));
@@ -63,6 +77,7 @@ export function cancelMyOrder(orderId) {
   return (dispatch, getState) => {
     const order = selectMyOrders(getState()).find(item => item.id === orderId);
     if (!order || partnerStage(order) !== 'new') return false;
+    if (order.source === 'api') return dispatch(cancelApiOrder(orderId));
     dispatch(cancelOrder({ id: orderId, at: new Date().toISOString() }));
     return true;
   };

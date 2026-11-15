@@ -11,6 +11,7 @@ import AppButton from '../../components/AppButton';
 import AppInput from '../../components/AppInput';
 import { EmptyState, Notice, ui } from '../../components/customer/ui';
 import { advanceRiderDelivery, saveRiderProof } from '../../redux/riderSlice';
+import { completeApiOrder, pickupApiOrder } from '../../redux/apiThunks';
 import { chooseRiderProof } from '../../utils/riderMedia';
 import { riderRequestById } from '../../data/riderRequests';
 import { formatPrice } from '../../data/catalog';
@@ -40,7 +41,7 @@ export function RiderActiveDeliveryScreen({ navigation, route }) {
       <View style={ui.card}><AppText variant="caption" color={COLORS.textSecondary}>YOUR NEXT STOP</AppText><AppText variant="subheading">{step.number === 1 ? active.restaurant : active.customer}</AppText><AppText variant="small" color={COLORS.textSecondary}>{step.number === 1 ? active.pickupAddress : active.customerAddress}</AppText><View style={ui.row}><FontAwesomeIcon icon={faLocationDot} color={COLORS.primary} size={15} /><AppText variant="small">{active.distanceKm} km · about {active.etaMinutes} min away</AppText></View></View>
       <View style={ui.card}><AppText style={ui.bold}>{active.customer} · {active.customerAddress}</AppText><AppText variant="caption" color={COLORS.textSecondary}>{active.items.map(item => `${item.quantity} × ${item.name}`).join(', ')}</AppText><AppText variant="caption" color={COLORS.success}>Delivery fee · {formatPrice(active.earnings)}</AppText></View>
       <View style={ui.between}><AppButton title={step.action} style={ui.flex} onPress={() => navigation.navigate(step.route, { deliveryId: active.id })} /><AppButton title="Contact" variant="outline" style={ui.flex} onPress={() => navigation.navigate(routes.RIDER_SUPPORT)} /></View>
-      <Notice title="Active demo delivery">Directions, calls and dispatch notifications will be connected later.</Notice>
+      <Notice title={active.isApi ? 'Live delivery' : 'Active demo delivery'}>{active.isApi ? 'Customer tracking updates as you complete pickup and delivery.' : 'Directions, calls and dispatch notifications will be connected later.'}</Notice>
     </>}
   </RiderLayout>;
 }
@@ -63,18 +64,28 @@ export function RiderConfirmPickupScreen({ navigation, route }) {
   const active = activeFor(rider, route);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [showDemoCode, setShowDemoCode] = useState(false);
-  function confirm() {
+  async function confirm() {
+    if (!active || busy) return;
     if (active.status !== 'to-pickup') { navigation.navigate(STEP[active.status]?.route || routes.RIDER_ACTIVE_DELIVERY, { deliveryId: active.id }); return; }
-    if (code.trim() !== DEMO_PICKUP_CODE) { setError('The restaurant pickup code does not match.'); return; }
-    dispatch(advanceRiderDelivery({ userKey: rider.userKey, to: 'to-customer' }));
+    setBusy(true);
+    if (active.isApi) {
+      const result = await dispatch(pickupApiOrder(active.id, code.trim()));
+      setBusy(false);
+      if (!result.ok) { setError(result.error); return; }
+    } else {
+      if (code.trim() !== DEMO_PICKUP_CODE) { setBusy(false); setError('The restaurant pickup code does not match.'); return; }
+      dispatch(advanceRiderDelivery({ userKey: rider.userKey, to: 'to-customer' }));
+      setBusy(false);
+    }
     navigation.navigate(routes.RIDER_TO_CUSTOMER, { deliveryId: active.id });
   }
-  return <RiderLayout navigation={navigation} title="Confirm Food Pickup" subtitle={active ? `Order #${active.orderId}` : ''} hasTabs error={error} footer={active ? <AppButton title="✓ Food Picked Up" onPress={confirm} /> : null}>
+  return <RiderLayout navigation={navigation} title="Confirm Food Pickup" subtitle={active ? `Order #${active.orderId}` : ''} hasTabs error={error} footer={active ? <AppButton title={busy ? 'Confirming…' : '✓ Food Picked Up'} onPress={confirm} disabled={busy} /> : null}>
     {!active ? <EmptyState title="Delivery not found">Return to your active delivery.</EmptyState> : <>
       <View style={ui.card}><RequestRestaurant request={riderRequestById(active.requestId)} active={active} /><AppText variant="subheading">Check items before pickup</AppText>{active.items.map(item => <View key={item.name} style={ui.row}><FontAwesomeIcon icon={faCheck} color={COLORS.success} size={15} /><AppText variant="small">{item.quantity} × {item.name}</AppText></View>)}<Notice success title="Sealed food bag">Ask the restaurant to confirm the order is ready.</Notice></View>
       <View style={styles.pinCard}><AppText variant="caption" color={COLORS.textSecondary}>RESTAURANT PICKUP CODE</AppText><AppText variant="small" color={COLORS.textSecondary}>Ask the restaurant for the 4-digit code on the order.</AppText><AppInput label="ENTER PICKUP CODE" placeholder="4 digit code" value={code} onValueChange={value => { setCode(value.replace(/\D/g, '')); setError(''); }} keyboardType="number-pad" maxLength={4} />
-        <AppButton title={showDemoCode ? `Demo code: ${DEMO_PICKUP_CODE}` : 'Show demo code'} variant="text" onPress={() => setShowDemoCode(true)} /></View>
+        {active.isApi ? null : <AppButton title={showDemoCode ? `Demo code: ${DEMO_PICKUP_CODE}` : 'Show demo code'} variant="text" onPress={() => setShowDemoCode(true)} />}</View>
     </>}
   </RiderLayout>;
 }
@@ -114,6 +125,7 @@ export function RiderProofScreen({ navigation, route }) {
   const rider = useRider();
   const active = activeFor(rider, route);
   const [busy, setBusy] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState('');
   async function chooseProof() {
     setBusy(true); setError('');
@@ -121,12 +133,20 @@ export function RiderProofScreen({ navigation, route }) {
     catch (problem) { setError('Could not keep that photo. Please try again.'); }
     finally { setBusy(false); }
   }
-  function complete() {
-    if (!active) return;
-    dispatch(advanceRiderDelivery({ userKey: rider.userKey, to: 'completed', at: new Date().toISOString() }));
+  async function complete() {
+    if (!active || completing) return;
+    setCompleting(true);
+    if (active.isApi) {
+      const result = await dispatch(completeApiOrder(active.id));
+      setCompleting(false);
+      if (!result.ok) { setError(result.error); return; }
+    } else {
+      dispatch(advanceRiderDelivery({ userKey: rider.userKey, to: 'completed', at: new Date().toISOString() }));
+      setCompleting(false);
+    }
     navigation.replace(routes.RIDER_COMPLETED, { deliveryId: active.id });
   }
-  return <RiderLayout navigation={navigation} title="Complete Delivery" subtitle={active ? `Order #${active.orderId}` : ''} hasTabs={false} error={error} footer={active ? <><AppButton title="✓ Confirm Order Delivered" onPress={complete} /><AppText variant="caption" color={COLORS.textSecondary} style={ui.center}>You can deliver without adding a photo.</AppText></> : null}>
+  return <RiderLayout navigation={navigation} title="Complete Delivery" subtitle={active ? `Order #${active.orderId}` : ''} hasTabs={false} error={error} footer={active ? <><AppButton title={completing ? 'Completing…' : '✓ Confirm Order Delivered'} onPress={complete} disabled={completing} /><AppText variant="caption" color={COLORS.textSecondary} style={ui.center}>You can deliver without adding a photo.</AppText></> : null}>
     {!active ? <EmptyState title="Delivery not found">Return to your active delivery.</EmptyState> : <>
       <View style={styles.completeIcon}><FontAwesomeIcon icon={faBox} size={28} color={COLORS.primary} /></View><AppText variant="title" style={ui.center}>Almost done!</AppText><AppText variant="small" color={COLORS.textSecondary} style={ui.center}>Confirm that the customer received the order.</AppText>
       <View style={ui.card}><AppText style={ui.bold}>Delivery method</AppText><View style={ui.between}><AppText variant="small">Handed to customer</AppText><Icon name="check" size={16} color={COLORS.success} /></View><AppText style={ui.bold}>Proof of delivery</AppText>

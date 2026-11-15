@@ -22,7 +22,8 @@ export default function PartnerPreparingOrderScreen({ navigation, route, hasPart
   const total = (order?.prepMinutes || 20) + (order?.delayMinutes || 0);
   const progress = Math.max(0, Math.min(1, 1 - remaining / total));
   function ready() {
-    if (dispatch(transitionPartnerOrder({ id: order.id, stage: 'ready' }))) navigation.navigate(routes.PARTNER_ORDER_STATUS, { orderId: order.id });
+    Promise.resolve(dispatch(transitionPartnerOrder({ id: order.id, stage: 'ready' })))
+      .then(ok => { if (ok) navigation.navigate(routes.PARTNER_ORDER_STATUS, { orderId: order.id }); });
   }
   return <PartnerLayout navigation={navigation} title={order ? `Order #${orderNumber(order)}` : 'Preparing Order'} hasTabs={hasPartnerTabs}
     footer={order ? <AppButton title={stage === 'preparing' ? 'Mark Ready for Pickup' : 'View Current Status'} icon={stage === 'preparing' ? 'clock' : undefined} variant={stage === 'preparing' ? 'secondary' : 'outline'}

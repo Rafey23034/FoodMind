@@ -2,8 +2,7 @@ import React from 'react';
 import { useDispatch } from 'react-redux';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { routes } from './routes';
-import { signInWithPassword } from '../redux/session';
-import { createAccount } from '../data/accounts';
+import { registerWithPassword, signInWithPassword } from '../redux/session';
 import SplashScreen from '../screens/auth/SplashScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -20,7 +19,7 @@ export default function AuthStack() {
   }
 
   function onRegister(account, role) {
-    return createAccount(account, role);
+    return dispatch(registerWithPassword(account, role));
   }
 
   return (

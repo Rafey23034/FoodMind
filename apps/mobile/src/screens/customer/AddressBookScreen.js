@@ -8,7 +8,8 @@ import AppButton from '../../components/AppButton';
 import Icon from '../../components/Icon';
 import FloatingMessage from '../../components/FloatingMessage';
 import { EmptyState, ui } from '../../components/customer/ui';
-import { addressUserKey, selectUserAddresses, saveAddress, deleteAddress, selectAddress } from '../../redux/addressesSlice';
+import { addressUserKey, selectUserAddresses, selectAddress } from '../../redux/addressesSlice';
+import { deleteCustomerAddress, saveCustomerAddress } from '../../redux/apiThunks';
 import { confirmAction } from '../../utils/confirm';
 import { COLORS } from '../../theme/colors';
 import { RADIUS } from '../../theme/spacing';
@@ -17,6 +18,7 @@ export default function AddressBookScreen({ navigation }) {
   const dispatch = useDispatch();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const userKey = useSelector(state => addressUserKey(state.auth.user));
   const list = useSelector(selectUserAddresses);
   const selectedId = useSelector(state => state.addresses.selectedByUser[userKey]);
@@ -28,22 +30,37 @@ export default function AddressBookScreen({ navigation }) {
 
   function startNew() { setId(null); setLabel('Home'); setStreet(''); setCity(''); setError(''); setEditing(true); }
   function startEdit(address) { setId(address.id); setLabel(address.label); setStreet(address.street); setCity(address.city); setError(''); setEditing(true); }
-  function save() {
+  async function save() {
+    if (saving) return;
     if (!label.trim() || !street.trim() || !city.trim()) { setError('Enter a label, street address, and city.'); return; }
-    const address = { id: id || String(Date.now()), label: label.trim(), street: street.trim(), city: city.trim() };
-    dispatch(saveAddress({ userKey, address }));
-    dispatch(selectAddress({ userKey, id: address.id }));
-    setEditing(false); setError('');
-    setMessage('Address saved and selected for delivery.');
+    setSaving(true);
+    try {
+      const existing = list.find(item => item.id === id);
+      const address = {
+        ...existing,
+        id: id || String(Date.now()),
+        label: label.trim(), street: street.trim(), city: city.trim(),
+        isDefault: existing?.isDefault || list.length === 0,
+      };
+      const result = await dispatch(saveCustomerAddress({ userKey, address }));
+      if (!result.ok) { setError(result.error); return; }
+      setEditing(false); setError('');
+      setMessage('Address saved and selected for delivery.');
+    } finally {
+      setSaving(false);
+    }
   }
   const remove = address => confirmAction({ title: `Remove ${address.label}?`, message: `${address.street}, ${address.city}`, confirmLabel: 'Remove',
-    onConfirm: () => dispatch(deleteAddress({ userKey, id: address.id })) });
+    onConfirm: async () => {
+      const result = await dispatch(deleteCustomerAddress({ userKey, address }));
+      if (!result.ok) setError(result.error);
+    } });
 
   return (
     <View style={styles.screen}>
-      <ScreenLayout navigation={navigation} title="Saved Addresses" error={editing ? error : ''}
+      <ScreenLayout navigation={navigation} title="Saved Addresses" error={error}
         footer={editing ? <View style={ui.row}><AppButton style={ui.flex} title="Cancel" variant="outline" onPress={() => { setEditing(false); setError(''); }} />
-          <AppButton style={styles.save} title="Save address" onPress={save} /></View>
+          <AppButton style={styles.save} title={saving ? 'Saving…' : 'Save address'} onPress={save} disabled={saving} /></View>
           : <AppButton title="+ Add address" onPress={startNew} />}>
         {editing ? <View style={ui.card}>
           <AppText variant="subheading">{id ? 'Edit address' : 'New address'}</AppText>

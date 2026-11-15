@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import ScreenLayout from '../../components/customer/ScreenLayout';
@@ -9,6 +9,7 @@ import OrderProgress from '../../components/customer/OrderProgress';
 import { EmptyState, Notice, ui } from '../../components/customer/ui';
 import { selectMyOrder } from '../../redux/ordersSlice';
 import { advanceOrderDemo } from '../../redux/orderThunks';
+import { refreshOrderTracking } from '../../redux/apiThunks';
 import { isClosedOrder, orderStatusLabel, orderEtaText, riderLine } from '../../data/orderHelpers';
 import { DEMO_STAGE_ACTION, partnerStage } from '../../data/partnerOrders';
 import { restaurant } from '../../data/catalog';
@@ -23,9 +24,17 @@ export default function TrackOrderScreen({ navigation, route }) {
   const [contact, setContact] = useState(false);
   const stage = partnerStage(order);
   const closed = isClosedOrder(order);
+
+  useEffect(() => {
+    if (!order || order.source !== 'api' || closed) return undefined;
+    dispatch(refreshOrderTracking(order.id));
+    const timer = setInterval(() => dispatch(refreshOrderTracking(order.id)), 10000);
+    return () => clearInterval(timer);
+  }, [closed, dispatch, order?.id, order?.source]);
+
   return <ScreenLayout navigation={navigation} title="Track Order" subtitle={order ? `Order #${order.id.slice(-6)}` : ''}>
     {!order ? <EmptyState title="Order not found">Choose an order from My Orders to track it.</EmptyState> : <>
-      <DeliveryMap arrived={order.status === 'Delivered'} eta={closed ? null : orderEtaText(order, restaurant.time)} />
+      <DeliveryMap arrived={order.status === 'Delivered'} eta={closed ? null : orderEtaText(order, restaurant.time)} points={order.route?.coordinates} />
       <View style={ui.card}>
         <AppText variant="subheading">{HEADLINE[stage] || orderStatusLabel(order)}</AppText>
         {!closed ? <AppText variant="small" color={COLORS.textSecondary}>{orderEtaText(order, restaurant.time)}</AppText> : null}
@@ -39,7 +48,7 @@ export default function TrackOrderScreen({ navigation, route }) {
         {contact ? <Notice title="Rider contact">Calls and messages will be available when the delivery service is connected.</Notice> : null}
         <AppButton title="View Order Details" variant="outline" onPress={() => navigation.navigate(routes.ORDER_DETAILS, { orderId: order.id })} />
       </View>
-      {!closed && DEMO_STAGE_ACTION[stage] ? <View style={ui.card}>
+      {!closed && order.source !== 'api' && DEMO_STAGE_ACTION[stage] ? <View style={ui.card}>
         <AppText variant="small" color={COLORS.textSecondary}>Demo control: move this order to its next stage (normally done by the restaurant and rider).</AppText>
         <AppButton title={`Demo · ${DEMO_STAGE_ACTION[stage]}`} variant="outline" onPress={() => dispatch(advanceOrderDemo(order.id))} />
       </View> : order.status === 'Delivered' ? <AppButton title="Rate Your Order" onPress={() => navigation.navigate(routes.RATE_ORDER, { orderId: order.id })} /> : null}

@@ -18,10 +18,12 @@ export default function RegisterScreen({ navigation, route, onRegister }) {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const setField = key => value => setForm(previous => ({ ...previous, [key]: value }));
 
-  function handleRegister() {
+  async function handleRegister() {
+    if (busy) return;
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = 'Please enter your name.';
     if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) nextErrors.email = 'Enter a valid email address.';
@@ -31,17 +33,22 @@ export default function RegisterScreen({ navigation, route, onRegister }) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const result = onRegister({
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
-      password: form.password,
-    }, role);
-    if (!result.success) {
-      setMessage(result.message);
-      return;
+    setBusy(true);
+    try {
+      const result = await onRegister({
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      }, role);
+      if (!result.success) {
+        setMessage(result.message);
+        return;
+      }
+      // Both kinds of accounts sign in through the same Login screen.
+      navigation.replace(routes.LOGIN, { registered: true, email: result.email || form.email.trim().toLowerCase() });
+    } finally {
+      setBusy(false);
     }
-    // Both kinds of accounts sign in through the same Login screen.
-    navigation.replace(routes.LOGIN, { registered: true, email: result.email || form.email.trim().toLowerCase() });
   }
 
   return (
@@ -123,8 +130,9 @@ export default function RegisterScreen({ navigation, route, onRegister }) {
           {message ? <AppText color={COLORS.danger} style={styles.passwordHint}>{message}</AppText> : null}
 
           <AppButton
-            title={isPartner ? 'Create Partner Account  →' : isRider ? 'Create Rider Account  →' : 'Create Account  →'}
+            title={busy ? 'Creating account…' : isPartner ? 'Create Partner Account  →' : isRider ? 'Create Rider Account  →' : 'Create Account  →'}
             onPress={handleRegister}
+            disabled={busy}
             style={styles.registerButton}
             testID={isPartner ? 'partner-register-button' : 'register-button'}
           />

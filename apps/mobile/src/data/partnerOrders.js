@@ -11,7 +11,7 @@ export const SAMPLE_RIDER = Object.freeze({ name: 'Tariq M.', rating: 4.9, vehic
 
 export function partnerStage(order) {
   if (!order) return null;
-  if (order.status === 'Rejected') return 'rejected';
+  if (order.status === 'Rejected' || order.status === 'Cancelled') return 'rejected';
   if (order.status === 'Delivered') return 'delivered';
   if (order.status === 'On the way') return 'picked-up';
   if (order.status === 'Preparing') return order.partnerStage === 'ready' ? 'ready' : 'preparing';

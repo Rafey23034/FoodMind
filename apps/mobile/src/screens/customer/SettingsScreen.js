@@ -5,7 +5,7 @@ import ScreenLayout from '../../components/customer/ScreenLayout';
 import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
 import { ui } from '../../components/customer/ui';
-import { logout } from '../../redux/authSlice';
+import { signOut } from '../../redux/session';
 import { selectUserAddresses } from '../../redux/addressesSlice';
 import { useCustomerPreview } from '../../navigation/PreviewContext';
 import { routes } from '../../navigation/routes';
@@ -37,7 +37,7 @@ export default function SettingsScreen({ navigation }) {
       <View style={ui.card}>
         <AppText variant="small" color={COLORS.textSecondary}>Your orders, addresses and profile are stored on this device. FoodMind does not use your location or card details.</AppText>
       </View>
-      {!preview ? <AppButton title="Log Out" icon="logout" variant="outline" onPress={() => confirmLogout(() => dispatch(logout()))} /> : null}
+      {!preview ? <AppButton title="Log Out" icon="logout" variant="outline" onPress={() => confirmLogout(() => dispatch(signOut()))} /> : null}
     </ScreenLayout>
   );
 }

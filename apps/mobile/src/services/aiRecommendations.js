@@ -1,7 +1,8 @@
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001').replace(/\/$/, '');
+import { API_ENABLED, API_ORIGIN } from './api';
 
 export async function requestAIRecommendations({ prompt, preferences, menu }) {
-  const response = await fetch(`${API_BASE_URL}/api/ai/recommendations`, {
+  if (!API_ENABLED) throw new Error('FoodMind AI is unavailable.');
+  const response = await fetch(`${API_ORIGIN}/api/ai/recommendations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, preferences, menu }),

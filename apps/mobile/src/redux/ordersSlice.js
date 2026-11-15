@@ -7,6 +7,16 @@ const ordersSlice = createSlice({
   initialState: { items: [] },
   reducers: {
     loadOrders: (state, action) => { state.items = Array.isArray(action.payload) ? action.payload : []; },
+    mergeOrders: (state, action) => {
+      const incoming = Array.isArray(action.payload) ? action.payload : [];
+      const byId = new Map(state.items.map(order => [String(order.id), order]));
+      for (const order of incoming) byId.set(String(order.id), order);
+      state.items = [...byId.values()].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    },
+    replaceOrder: (state, action) => {
+      const index = state.items.findIndex(order => String(order.id) === String(action.payload?.id));
+      if (index >= 0) state.items[index] = { ...state.items[index], ...action.payload };
+    },
     placeOrder: (state, action) => { state.items.unshift(action.payload); },
     updateOrderStatus: (state, action) => {
       const order = state.items.find(item => item.id === action.payload.id);
@@ -35,7 +45,7 @@ const ordersSlice = createSlice({
   },
 });
 
-export const { loadOrders, placeOrder, updateOrderStatus, cancelOrder, updatePartnerOrder, delayPartnerOrder } = ordersSlice.actions;
+export const { loadOrders, mergeOrders, replaceOrder, placeOrder, updateOrderStatus, cancelOrder, updatePartnerOrder, delayPartnerOrder } = ordersSlice.actions;
 export default ordersSlice.reducer;
 
 const selectOrderItems = state => state.orders.items;

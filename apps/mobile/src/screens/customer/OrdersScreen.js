@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { openCart } from '../../navigation/customerNavigation';
@@ -11,6 +11,7 @@ import OrderProgress from '../../components/customer/OrderProgress';
 import { EmptyState, ui } from '../../components/customer/ui';
 import { reorder } from '../../redux/cartSlice';
 import { selectMyOrders } from '../../redux/ordersSlice';
+import { syncCustomerData } from '../../redux/apiThunks';
 import { routes } from '../../navigation/routes';
 import { formatPrice, restaurant } from '../../data/catalog';
 import { isClosedOrder, orderStatusLabel, orderEtaText, riderLine } from '../../data/orderHelpers';
@@ -20,7 +21,14 @@ import { RADIUS } from '../../theme/spacing';
 export default function OrdersScreen({ navigation }) {
   const dispatch = useDispatch();
   const orders = useSelector(selectMyOrders);
+  const apiSession = useSelector(state => Boolean(state.auth.user?.accessToken || state.auth.user?.refreshToken));
   const [selectedTab, setSelectedTab] = useState('active');
+  useEffect(() => {
+    if (!apiSession) return undefined;
+    dispatch(syncCustomerData());
+    const timer = setInterval(() => dispatch(syncCustomerData()), 10000);
+    return () => clearInterval(timer);
+  }, [apiSession, dispatch]);
   const activeOrders = orders.filter(order => !isClosedOrder(order));
   const pastOrders = orders.filter(isClosedOrder);
 
