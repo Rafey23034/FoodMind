@@ -10,7 +10,7 @@ async function offerNext(orderId) {
     'CALL offer_order_to_nearest_rider(?, ?, ?)',
     [orderId, config.offer.radiusM, config.offer.timeoutS]
   );
-  const offer = Array.isArray(rows) ? rows[0] : null;
+  const offer = rows[0]?.[0];
   if (!offer) return null;
 
   const order = await db.one('SELECT id, restaurant_id FROM orders WHERE id = ?', [orderId]);
@@ -66,4 +66,4 @@ function stopOfferWorker() {
   worker = null;
 }
 
-module.exports = { offerNext, sweepExpiredOffers, startOfferWorker, stopOfferWorker };
+module.exports = { offerNext, startOfferWorker, stopOfferWorker };

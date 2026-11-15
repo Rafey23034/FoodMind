@@ -18,10 +18,10 @@ module.exports = {
     accessTtl: '15m',
     refreshTtl: '30d',
   },
-  google: {
-    serverKey: process.env.GOOGLE_MAPS_SERVER_API_KEY || '',
-    language: process.env.GOOGLE_MAPS_LANGUAGE || 'en',
-    region: process.env.GOOGLE_MAPS_REGION || 'pk',
+  mapbox: {
+    accessToken: process.env.MAPBOX_ACCESS_TOKEN || '',
+    language: process.env.MAPBOX_LANGUAGE || 'en',
+    country: process.env.MAPBOX_COUNTRY || 'pk',
     defaultLat: number(process.env.DEFAULT_GEO_LAT, 31.5204),
     defaultLng: number(process.env.DEFAULT_GEO_LNG, 74.3587),
   },

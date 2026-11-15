@@ -61,7 +61,6 @@ function requireRole(...roles) {
 
 module.exports = {
   ACCESS_TYPE,
-  REFRESH_TYPE,
   publicUser,
   signAccess,
   signRefresh,

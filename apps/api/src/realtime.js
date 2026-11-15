@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const WebSocketServer = WebSocket.WebSocketServer || WebSocket.Server;
+const WebSocketServer = WebSocket.Server;
 const config = require('./config');
 const db = require('./db');
 const { verifyToken, ACCESS_TYPE } = require('./middleware/auth');

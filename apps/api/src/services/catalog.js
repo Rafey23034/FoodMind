@@ -14,6 +14,15 @@ const RESTAURANT_SELECT = `
     LEFT JOIN cuisines c ON c.id = rc.cuisine_id
 `;
 
+const MENU_SELECT = `
+  SELECT v.*, GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ',') AS tags,
+         ir.rating, ir.rating_count
+    FROM v_menu_available v
+    LEFT JOIN menu_item_tags mt ON mt.menu_item_id = v.id
+    LEFT JOIN tags t ON t.id = mt.tag_id
+    LEFT JOIN v_menu_item_ratings ir ON ir.menu_item_id = v.id
+`;
+
 function restaurant(row) {
   return {
     id: String(row.id),
@@ -80,12 +89,7 @@ async function optionsFor(itemIds) {
 
 async function menuFor(restaurantId) {
   const rows = await db.query(
-    `SELECT v.*, GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ',') AS tags,
-            ir.rating, ir.rating_count
-       FROM v_menu_available v
-       LEFT JOIN menu_item_tags mt ON mt.menu_item_id = v.id
-       LEFT JOIN tags t ON t.id = mt.tag_id
-       LEFT JOIN v_menu_item_ratings ir ON ir.menu_item_id = v.id
+    `${MENU_SELECT}
       WHERE v.restaurant_id = ?
       GROUP BY v.id
       ORDER BY v.category_name, v.is_recommended DESC, v.id`,
@@ -97,12 +101,7 @@ async function menuFor(restaurantId) {
 
 async function getMenuItem(itemId) {
   const row = await db.one(
-    `SELECT v.*, GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ',') AS tags,
-            ir.rating, ir.rating_count
-       FROM v_menu_available v
-       LEFT JOIN menu_item_tags mt ON mt.menu_item_id = v.id
-       LEFT JOIN tags t ON t.id = mt.tag_id
-       LEFT JOIN v_menu_item_ratings ir ON ir.menu_item_id = v.id
+    `${MENU_SELECT}
       WHERE v.id = ?
       GROUP BY v.id`,
     [itemId]

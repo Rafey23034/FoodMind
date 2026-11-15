@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../db');
-const { badRequest, unauthorized, conflict } = require('../errors');
+const { unauthorized, conflict } = require('../errors');
 const { publicUser } = require('../middleware/auth');
 
 const USER_COLUMNS = 'id, role, full_name, email, phone, avatar_url, status, created_at';
@@ -16,7 +16,11 @@ async function findUserById(id) {
 async function userDetails(id) {
   const user = await findUserById(id);
   if (!user) return null;
+  return withProfile(user);
+}
 
+async function withProfile(user) {
+  const id = user.id;
   let profile = null;
   if (user.role === 'partner') {
     profile = await db.one(
@@ -91,13 +95,13 @@ async function login({ email, password }) {
   const matches = await bcrypt.compare(password, user.password_hash);
   if (!matches) throw unauthorized('Email or password is incorrect.');
 
-  return userDetails(user.id);
+  return withProfile(user);
 }
 
 async function refresh(userId) {
   const user = await findUserById(userId);
   if (!user || user.status !== 'active') throw unauthorized('Account is not available.');
-  return userDetails(user.id);
+  return withProfile(user);
 }
 
-module.exports = { register, login, refresh, findUserById, userDetails, publicUser };
+module.exports = { register, login, refresh, userDetails };

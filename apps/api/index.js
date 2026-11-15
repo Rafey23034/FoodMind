@@ -1,5 +1,3 @@
-module.exports = require('./src/services/chat');
-
 if (require.main === module) {
   const http = require('http');
   const app = require('./src/app');

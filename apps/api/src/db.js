@@ -21,15 +21,11 @@ async function one(sql, params = []) {
   return rows[0] || null;
 }
 
-async function rows(executor, sql, params = []) {
-  const result = await executor.query(sql, params);
-  return Array.isArray(result[0]) ? result[0] : result;
-}
-
-async function transaction(work) {
+async function transaction(work, actorId = null) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    await connection.query('SET @app_user_id = ?', [actorId]);
     const result = await work(connection);
     await connection.commit();
     return result;
@@ -37,12 +33,14 @@ async function transaction(work) {
     await connection.rollback();
     throw error;
   } finally {
-    connection.release();
+    // Session variables survive COMMIT/ROLLBACK and must not leak to the next request.
+    try {
+      await connection.query('SET @app_user_id = NULL');
+      connection.release();
+    } catch {
+      connection.destroy();
+    }
   }
 }
 
-async function setActor(connection, userId) {
-  await connection.query('SET @app_user_id = ?', [userId || null]);
-}
-
-module.exports = { pool, query, one, rows, transaction, setActor };
+module.exports = { pool, query, one, transaction };

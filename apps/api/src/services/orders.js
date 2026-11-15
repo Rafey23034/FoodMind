@@ -12,7 +12,7 @@ const ORDER_SELECT = `
          ST_Latitude(o.delivery_location) AS delivery_lat, ST_Longitude(o.delivery_location) AS delivery_lng,
          u.full_name AS customer_name, u.email AS customer_email, u.phone AS customer_phone,
          ru.full_name AS rider_name, ru.phone AS rider_phone, rr.vehicle_type AS rider_vehicle,
-         ST_Latitude(rl.location) AS rider_lat, ST_Longitude(rl.location) AS rider_lng
+          ST_Latitude(rl.location) AS rider_lat, ST_Longitude(rl.location) AS rider_lng
     FROM orders o
     JOIN restaurants r ON r.id = o.restaurant_id
     JOIN users u ON u.id = o.customer_id
@@ -23,14 +23,10 @@ const ORDER_SELECT = `
 
 const idempotency = new Map();
 
-function publicId(value) {
-  return String(value);
-}
-
-async function itemsForOrders(orders, executor = db) {
+async function itemsForOrders(orders) {
   if (!orders.length) return new Map();
   const ids = orders.map(row => row.id);
-  const rows = await executor.query(
+  const rows = await db.query(
     `SELECT oi.*, oio.option_id, oio.option_name, oio.price_delta
        FROM order_items oi
        LEFT JOIN order_item_options oio ON oio.order_item_id = oi.id
@@ -43,7 +39,7 @@ async function itemsForOrders(orders, executor = db) {
   for (const row of rows) {
     if (!grouped.has(row.order_id)) grouped.set(row.order_id, new Map());
     const lines = grouped.get(row.order_id);
-    if (!lines.has(row.id)) lines.set(row.id, { ...orderItem(row), options: [] });
+    if (!lines.has(row.id)) lines.set(row.id, orderItem(row));
     if (row.option_id) {
       lines.get(row.id).options.push({
         id: String(row.option_id),
@@ -56,8 +52,8 @@ async function itemsForOrders(orders, executor = db) {
   return new Map([...grouped.entries()].map(([orderId, lines]) => [orderId, [...lines.values()]]));
 }
 
-async function hydrateRows(rows, executor = db) {
-  const items = await itemsForOrders(rows, executor);
+async function hydrateRows(rows) {
+  const items = await itemsForOrders(rows);
   return rows.map(row => serializeOrder(row, items.get(row.id) || []));
 }
 
@@ -89,8 +85,7 @@ async function findRow(orderId) {
   return db.one(`${ORDER_SELECT} WHERE o.id = ?`, [orderId]);
 }
 
-async function orderWithAccess(orderId, user) {
-  const row = await findRow(orderId);
+function assertAccess(row, user) {
   if (!row) throw notFound('Order not found.');
 
   const allowed =
@@ -99,6 +94,11 @@ async function orderWithAccess(orderId, user) {
     (user.role === 'rider' && row.rider_id === user.id);
 
   if (!allowed) throw forbidden('You cannot view this order.');
+}
+
+async function orderWithAccess(orderId, user) {
+  const row = await findRow(orderId);
+  assertAccess(row, user);
   const [order] = await hydrateRows([row]);
   return order;
 }
@@ -116,7 +116,7 @@ async function buildQuote(executor, restaurantId, items) {
     throw badRequest('Every cart item needs a valid menu item id.');
   }
 
-  const restaurant = await db.rows(executor,
+  const [restaurant] = await executor.query(
     `SELECT id, name, base_delivery_fee, status, is_accepting_orders
        FROM restaurants WHERE id = ?`,
     [restaurantId]
@@ -126,7 +126,7 @@ async function buildQuote(executor, restaurantId, items) {
   if (!venue.is_accepting_orders) throw conflict('This restaurant is not accepting orders right now.');
 
   const ids = [...new Set(normalized.map(item => item.menuItemId))];
-  const menuRows = await db.rows(executor,
+  const [menuRows] = await executor.query(
     `SELECT id, name, price, restaurant_id, is_available, deleted_at
        FROM menu_items WHERE id IN (?)`,
     [ids]
@@ -134,12 +134,12 @@ async function buildQuote(executor, restaurantId, items) {
   const menu = new Map(menuRows.map(row => [row.id, row]));
 
   const optionIds = [...new Set(normalized.flatMap(item => item.optionIds))];
-  const optionRows = optionIds.length
-    ? await db.rows(executor,
+  const [optionRows] = optionIds.length
+    ? await executor.query(
         `SELECT id, menu_item_id, name, price_delta, is_available FROM options WHERE id IN (?)`,
         [optionIds]
       )
-    : [];
+    : [[]];
   const options = new Map(optionRows.map(row => [row.id, row]));
 
   const lines = normalized.map(item => {
@@ -187,7 +187,7 @@ async function buildQuote(executor, restaurantId, items) {
 }
 
 async function quote(restaurantId, items) {
-  return buildQuote(db, restaurantId, items);
+  return buildQuote(db.pool, restaurantId, items);
 }
 
 async function create(user, input) {
@@ -216,7 +216,6 @@ async function create(user, input) {
   const route = await maps.computeRoute(location(restaurant), location({ lat: address.lat, lng: address.lng }));
 
   const orderId = await db.transaction(async connection => {
-    await db.setActor(connection, user.id);
     const priced = await buildQuote(connection, input.restaurantId, input.items);
     const fullAddress = [address.street, address.area, address.city].filter(Boolean).join(', ');
 
@@ -269,7 +268,7 @@ async function create(user, input) {
     }
 
     return orderId;
-  });
+  }, user.id);
 
   if (key) idempotency.set(key, String(orderId));
   await realtime.notifyOrder(orderId, 'order.created', { status: 'placed' });
@@ -283,23 +282,22 @@ async function cancel(user, orderId) {
   if (row.status !== 'placed') throw conflict('This order can no longer be cancelled.');
 
   await db.transaction(async connection => {
-    await db.setActor(connection, user.id);
     const [result] = await connection.query(
       `UPDATE orders SET status = 'cancelled'
         WHERE id = ? AND customer_id = ? AND status = 'placed'`,
       [orderId, user.id]
     );
     if (!result.affectedRows) throw conflict('This order can no longer be cancelled.');
-  });
+  }, user.id);
 
   await realtime.notifyOrder(orderId, 'order.status_changed', { status: 'cancelled' });
   return orderWithAccess(orderId, user);
 }
 
 async function tracking(user, orderId) {
-  const result = await orderWithAccess(orderId, user);
   const row = await findRow(orderId);
-  if (!row) throw notFound('Order not found.');
+  assertAccess(row, user);
+  const [result] = await hydrateRows([row]);
 
   if (row.status === 'delivered' || row.status === 'cancelled' || row.status === 'rejected') {
     return {
@@ -339,7 +337,6 @@ async function review(user, orderId, input) {
 
   try {
     await db.transaction(async connection => {
-      await db.setActor(connection, user.id);
       await connection.query(
         `INSERT INTO order_reviews
           (order_id, customer_id, restaurant_id, restaurant_rating, rider_rating, comment)
@@ -353,7 +350,7 @@ async function review(user, orderId, input) {
           input.comment?.trim() || null,
         ]
       );
-    });
+    }, user.id);
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') throw conflict('This order has already been reviewed.');
     throw error;
@@ -383,14 +380,13 @@ async function pickup(user, orderId, code) {
   }
 
   await db.transaction(async connection => {
-    await db.setActor(connection, user.id);
     const [result] = await connection.query(
       `UPDATE orders SET status = 'picked_up'
         WHERE id = ? AND rider_id = ? AND status = 'ready'`,
       [orderId, user.id]
     );
     if (!result.affectedRows) throw conflict('This order can no longer be picked up.');
-  });
+  }, user.id);
 
   await realtime.notifyOrder(orderId, 'order.status_changed', { status: 'picked_up' });
   return orderWithAccess(orderId, user);
@@ -403,21 +399,19 @@ async function delivered(user, orderId, proofPhotoUrl) {
   if (row.status !== 'picked_up') throw conflict('This order has not been picked up.');
 
   await db.transaction(async connection => {
-    await db.setActor(connection, user.id);
     const [result] = await connection.query(
       `UPDATE orders SET status = 'delivered', proof_photo_url = ?
         WHERE id = ? AND rider_id = ? AND status = 'picked_up'`,
       [proofPhotoUrl || null, orderId, user.id]
     );
     if (!result.affectedRows) throw conflict('This order can no longer be delivered.');
-  });
+  }, user.id);
 
   await realtime.notifyOrder(orderId, 'order.status_changed', { status: 'delivered' });
   return orderWithAccess(orderId, user);
 }
 
 module.exports = {
-  publicId,
   listForCustomer,
   listForPartner,
   listForRider,

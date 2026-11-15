@@ -132,4 +132,4 @@ function order(row, items = []) {
   };
 }
 
-module.exports = { number, iso, location, menuItem, order, orderItem, categorySymbols };
+module.exports = { number, iso, location, menuItem, order, orderItem };

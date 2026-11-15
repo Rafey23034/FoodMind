@@ -1,6 +1,6 @@
 # FoodMind
 
-React Native app using Expo, React Navigation, Redux Toolkit, and AsyncStorage, with a small Node AI service and a MySQL database design. The customer frontend follows the supplied 27-screen customer PDF. The partner frontend covers all 12 designs in `owner screens - Google Slides.pdf`, extending the original dashboard, manage-menu screen, and menu-item editor. The original catalog, assets, customer layouts, and cart calculations are retained.
+React Native app using Expo, React Navigation, Redux Toolkit, and AsyncStorage, with an Express/MySQL API for authentication, orders, rider dispatch, Mapbox routing, and AI. The customer frontend follows the supplied 27-screen customer PDF. The partner frontend covers all 12 designs in `owner screens - Google Slides.pdf`, extending the original dashboard, manage-menu screen, and menu-item editor. The original catalog, assets, customer layouts, and cart calculations are retained.
 
 ## Repository layout
 
@@ -8,7 +8,7 @@ React Native app using Expo, React Navigation, Redux Toolkit, and AsyncStorage, 
 FoodMind/
   apps/
     mobile/   Expo app (source, native projects, tests, build scripts)
-    api/      Node HTTP service for AI recommendations
+    api/      Express API (auth, orders, dispatch, Mapbox, AI)
   database/   MySQL schema, seed data, ERDs, and schema tests
   package.json
 ```
@@ -158,9 +158,15 @@ npm run api
 
 For the Android emulator, the app defaults to `http://10.0.2.2:3001`, which reaches the development computer. For a physical device or web preview, set `EXPO_PUBLIC_API_URL` to the reachable URL of this service before starting Expo. If the service cannot be reached, the chat says so and falls back to the local menu matcher, which still carries the dish from earlier turns ("under 1000" after "pasta" searches pasta under 1,000). `npm run test:api` runs the service's tests with a stand-in for Gemini. The service validates every AI-selected dish ID against the provided current menu, so the model cannot invent menu items.
 
-## Frontend-only boundaries
+## Mapbox routing and geocoding
 
-No production backend, live GPS/maps, real rider dispatch, calls, payments, or external support messaging are connected. The local AI recommendation service is the exception: it calls Gemini when configured, and falls back to deterministic matching against the existing available menu if unavailable. Rider screens provide local onboarding, document selection, delivery bid previews, delivery progress, proof photos, history, and earnings previews. The rider demo's delivery requests and selection are examples only. The demo restaurant's 25-35 minute delivery estimate cannot satisfy an "under 30 minutes" filter, so that filter shows no match. Comparison uses real menu price/rating fields rather than invented review statistics.
+The API uses Mapbox Geocoding v6 for addresses and Directions v5 (`mapbox/driving-traffic`) for routes, distances, and ETAs. Set `MAPBOX_ACCESS_TOKEN` in `apps/api/.env` and restart `npm run api`; see `.env.example` for language/country settings. Google Maps keys are no longer used. The token stays on the API server.
+
+Address results are stored in MySQL, so requests use `permanent=true`; the Mapbox account must support permanent geocoding (a card on file or an enterprise contract). Mapbox has no motorcycle-specific profile, so riders use automotive routing. Without a token, local demo addresses use the configured default coordinates and tracking retains the straight-line fallback. Routing failures also use that fallback. The mobile tracking screen consumes the same `{ lat, lng }` route points as before and renders them on its existing SVG illustration.
+
+## Current integration boundaries
+
+Authentication, saved addresses, checkout, order tracking, and the customer/partner/rider order lifecycle use the Express/MySQL API. The mobile app polls every 10 seconds; the API also exposes WebSocket events. AI calls Gemini when configured and falls back to local menu matching when unavailable. Menu browsing, onboarding/documents, profile edits, community delivery, support, and rider bids/earnings remain local previews. Rider location uses fixed demo coordinates until device GPS is integrated; tracking renders route points on an SVG illustration. Payment is cash on delivery.
 
 Orders, addresses, cart, and partner menu edits retain their original storage keys. Profiles, photos, reviews, point events, demo vouchers, support drafts, and community deliveries use a separate customer storage key and are separated by sign-in email. The sign-in email stays read-only in Edit Profile so saved account data and existing authentication stay consistent. Vouchers are recorded as demo rewards; they do not reduce checkout totals. Password changes and rider calls show frontend availability messages.
 
@@ -168,7 +174,7 @@ Partner profiles, document references, gallery photos, application status, onlin
 
 Rider profiles, documents, application status, online status, bids, delivery progress, ratings, proof photos, and history use `foodmind_rider_features_v1`, separated by sign-in email. Selected files and photos stay on the device. The customer, partner, and rider data use separate storage keys.
 
-Store contact details are separate from the sign-in account. Store metadata stays in the partner preview; publishing a restaurant to a server is deferred. Advanced item customization notes are saved as partner metadata; the existing customer customization controls are unchanged. The online toggle persists locally and does not enforce backend order acceptance.
+Store contact details are separate from the sign-in account. Store edits stay in the partner preview; publishing those edits to the server is deferred. Advanced item customization notes are saved as partner metadata; the existing customer customization controls are unchanged. For API sessions, the online toggle updates backend restaurant availability, which is enforced at checkout.
 
 ## Verification
 
@@ -182,7 +188,7 @@ Pop-Location
 
 The source check parses every JavaScript source and verifies local imports/assets. Tests cover customer screen rendering, missing route data, multi-turn AI chat (context, offline fallback, dish and compare navigation), checkout validation/confirmation, review submission, rider selection, billing consistency, points deduplication, account separation, and sorting/filtering. Partner tests also cover all screen renders, document selection and validation, application submission, demo approval, order transitions, canceled-order protection, sample-order isolation, menu editing/deletion, local profile/media saving, reviews, and persistence.
 
-The current version is checked with **157 app tests and 6 API tests**, the source check (135 JavaScript files), and Android (Hermes) and web exports. The tests cover per-account cart and order isolation, checkout validation against the live menu and restaurant availability, safe storage loading (a damaged entry is backed up and never wipes the rest), session restore, one shared order lifecycle for customer and partner, rider onboarding and rating fixes, and a scan of all 65 screens for stray "\n" or "/n" text.
+The current version is checked with **165 app tests and 22 API tests**, the source check (137 JavaScript files), and **23 isolated-database smoke checks** (`npm run api:smoke`, using `foodmind_test`). API tests cover the production Express AI routes, Mapbox request/response mapping and fallbacks, partial address updates, dispatch result handling, and transaction actor cleanup. The database smoke flow includes a real WebSocket offer, order lifecycle, proof persistence, and actor attribution.
 
 The dependency audit currently reports inherited Expo CLI advisories involving `node-forge` and Zod. Its suggested forced Expo downgrade is incompatible with this SDK and was not applied. This is a local frontend prototype; dependency review is still needed before production deployment.
 

@@ -51,20 +51,12 @@ async function dashboard(partnerId) {
 
 async function setAccepting(partnerId, isAccepting) {
   const restaurant = await requireRestaurant(partnerId);
-  if (!isAccepting) {
-    await db.query(
-      'UPDATE restaurants SET is_accepting_orders = FALSE WHERE id = ? AND partner_id = ?',
-      [restaurant.id, partnerId]
-    );
-    return { isAcceptingOrders: false };
-  }
-
-  if (restaurant.status !== 'active') throw conflict('This restaurant is not active yet.');
+  if (isAccepting && restaurant.status !== 'active') throw conflict('This restaurant is not active yet.');
   await db.query(
-    'UPDATE restaurants SET is_accepting_orders = TRUE WHERE id = ? AND partner_id = ?',
-    [restaurant.id, partnerId]
+    'UPDATE restaurants SET is_accepting_orders = ? WHERE id = ? AND partner_id = ?',
+    [Boolean(isAccepting), restaurant.id, partnerId]
   );
-  return { isAcceptingOrders: true };
+  return { isAcceptingOrders: Boolean(isAccepting) };
 }
 
 async function ownedOrder(partnerId, orderId) {
@@ -79,14 +71,13 @@ async function accept(partnerId, orderId, prepMinutes) {
   if (order.status !== 'placed') throw conflict('This order has already been handled.');
 
   await db.transaction(async connection => {
-    await db.setActor(connection, partnerId);
     const [result] = await connection.query(
       `UPDATE orders SET status = 'preparing', prep_minutes = ?
         WHERE id = ? AND status = 'placed'`,
       [prepMinutes, orderId]
     );
     if (!result.affectedRows) throw conflict('This order has already been handled.');
-  });
+  }, partnerId);
 
   await realtime.notifyOrder(orderId, 'order.status_changed', { status: 'preparing' });
   dispatch.offerNext(orderId).catch(error => console.error('Could not offer accepted order:', error.message));
@@ -98,14 +89,13 @@ async function reject(partnerId, orderId, reason) {
   if (order.status !== 'placed') throw conflict('This order has already been handled.');
 
   await db.transaction(async connection => {
-    await db.setActor(connection, partnerId);
     const [result] = await connection.query(
       `UPDATE orders SET status = 'rejected', rejection_reason = ?
         WHERE id = ? AND status = 'placed'`,
       [reason || null, orderId]
     );
     if (!result.affectedRows) throw conflict('This order has already been handled.');
-  });
+  }, partnerId);
 
   await realtime.notifyOrder(orderId, 'order.status_changed', { status: 'rejected' });
   return orders.orderWithAccess(orderId, { id: partnerId, role: 'partner' });
@@ -116,13 +106,12 @@ async function ready(partnerId, orderId) {
   if (order.status !== 'preparing') throw conflict('Only a preparing order can be marked ready.');
 
   await db.transaction(async connection => {
-    await db.setActor(connection, partnerId);
     const [result] = await connection.query(
       `UPDATE orders SET status = 'ready' WHERE id = ? AND status = 'preparing'`,
       [orderId]
     );
     if (!result.affectedRows) throw conflict('This order is not preparing.');
-  });
+  }, partnerId);
 
   await realtime.notifyOrder(orderId, 'order.status_changed', { status: 'ready' });
   if (!order.rider_id) dispatch.offerNext(orderId).catch(error => console.error('Could not offer ready order:', error.message));
@@ -139,16 +128,16 @@ async function delay(partnerId, orderId, minutes) {
   }
 
   await db.transaction(async connection => {
-    await db.setActor(connection, partnerId);
-    await connection.query(
+    const [result] = await connection.query(
       `UPDATE orders SET delay_minutes = delay_minutes + ?
         WHERE id = ? AND status IN ('preparing','ready')`,
       [minutes, orderId]
     );
-  });
+    if (!result.affectedRows) throw conflict('Only a preparing or ready order can be delayed.');
+  }, partnerId);
 
   await realtime.notifyOrder(orderId, 'order.delayed', { minutes });
   return orders.orderWithAccess(orderId, { id: partnerId, role: 'partner' });
 }
 
-module.exports = { restaurantFor, requireRestaurant, dashboard, setAccepting, accept, reject, ready, delay };
+module.exports = { dashboard, setAccepting, accept, reject, ready, delay };

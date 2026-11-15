@@ -5,6 +5,15 @@ const { location } = require('../utils/format');
 const { badRequest, notFound } = require('../errors');
 const { pointText } = require('../utils/geo');
 
+const addressText = input => [input.street, input.area, input.city].filter(Boolean).join(', ');
+
+async function clearDefault(connection, customerId) {
+  await connection.query(
+    'UPDATE addresses SET is_default = FALSE WHERE customer_id = ? AND deleted_at IS NULL',
+    [customerId]
+  );
+}
+
 async function list(customerId) {
   const rows = await db.query(
     `SELECT id, label, street, area, city, is_default,
@@ -37,13 +46,12 @@ async function find(customerId, addressId) {
 }
 
 async function create(customerId, input) {
-  const text = [input.street, input.area, input.city].filter(Boolean).join(', ');
   const geo = input.lat != null && input.lng != null
     ? { lat: Number(input.lat), lng: Number(input.lng) }
-    : await maps.geocode(text) || (config.google.serverKey ? null : { lat: config.google.defaultLat, lng: config.google.defaultLng });
+    : await maps.geocode(addressText(input)) || (config.mapbox.accessToken ? null : { lat: config.mapbox.defaultLat, lng: config.mapbox.defaultLng });
 
   if (!geo) {
-    throw badRequest('We could not locate that address. Add latitude and longitude or enable Google Geocoding.');
+    throw badRequest('We could not locate that address. Add latitude and longitude or configure Mapbox geocoding.');
   }
 
   return db.transaction(async connection => {
@@ -53,12 +61,7 @@ async function create(customerId, input) {
     );
     const isDefault = Boolean(input.isDefault) || Number(total) === 0;
 
-    if (isDefault) {
-      await connection.query(
-        'UPDATE addresses SET is_default = FALSE WHERE customer_id = ? AND deleted_at IS NULL',
-        [customerId]
-      );
-    }
+    if (isDefault) await clearDefault(connection, customerId);
 
     const [result] = await connection.query(
       `INSERT INTO addresses (customer_id, label, street, area, city, location, is_default)
@@ -82,18 +85,15 @@ async function update(customerId, addressId, input) {
   const existing = await find(customerId, addressId);
   if (!existing) throw notFound('Address not found.');
 
-  const text = [input.street, input.area, input.city].filter(Boolean).join(', ');
-  const geo = input.lat != null && input.lng != null
-    ? { lat: Number(input.lat), lng: Number(input.lng) }
-    : await maps.geocode(text);
+  const updated = { ...existing, ...input };
+  const addressChanged = ['street', 'area', 'city'].some(field =>
+    input[field] !== undefined && input[field] !== existing[field]);
+  const geo = input.lat != null || input.lng != null
+    ? { lat: Number(updated.lat), lng: Number(updated.lng) }
+    : addressChanged ? await maps.geocode(addressText(updated)) : null;
 
   return db.transaction(async connection => {
-    if (input.isDefault) {
-      await connection.query(
-        'UPDATE addresses SET is_default = FALSE WHERE customer_id = ? AND deleted_at IS NULL',
-        [customerId]
-      );
-    }
+    if (input.isDefault) await clearDefault(connection, customerId);
 
     await connection.query(
       `UPDATE addresses
@@ -102,10 +102,10 @@ async function update(customerId, addressId, input) {
               is_default = ?
         WHERE id = ? AND customer_id = ?`,
       [
-        input.label.trim(),
-        input.street.trim(),
-        input.area?.trim() || null,
-        input.city.trim(),
+        updated.label.trim(),
+        updated.street.trim(),
+        updated.area?.trim() || null,
+        updated.city.trim(),
         pointText(geo?.lat ?? Number(existing.lat), geo?.lng ?? Number(existing.lng)),
         input.isDefault == null ? Boolean(existing.is_default) : Boolean(input.isDefault),
         addressId,
@@ -147,10 +147,7 @@ async function makeDefault(customerId, addressId) {
   if (!existing) throw notFound('Address not found.');
 
   await db.transaction(async connection => {
-    await connection.query(
-      'UPDATE addresses SET is_default = FALSE WHERE customer_id = ? AND deleted_at IS NULL',
-      [customerId]
-    );
+    await clearDefault(connection, customerId);
     await connection.query(
       'UPDATE addresses SET is_default = TRUE WHERE id = ? AND customer_id = ?',
       [addressId, customerId]
@@ -166,7 +163,7 @@ async function reverse(lat, lng) {
 
 async function geocode(address) {
   const result = await maps.geocode(address);
-  return result || { lat: config.google.defaultLat, lng: config.google.defaultLng, formattedAddress: null };
+  return result || { lat: config.mapbox.defaultLat, lng: config.mapbox.defaultLng, formattedAddress: null };
 }
 
-module.exports = { list, find, create, update, remove, makeDefault, reverse, geocode };
+module.exports = { list, create, update, remove, makeDefault, reverse, geocode };

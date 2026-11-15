@@ -103,13 +103,12 @@ async function respond(riderId, offerId, action) {
 
   let orderId;
   await db.transaction(async connection => {
-    await db.setActor(connection, riderId);
-    const rows = await connection.query(
+    const [rows] = await connection.query(
       `SELECT id, order_id, rider_id, response, expires_at
          FROM delivery_offers WHERE id = ? FOR UPDATE`,
       [offerId]
     );
-    const offer = rows[0]?.[0];
+    const offer = rows[0];
     if (!offer) throw notFound('Offer not found.');
     if (offer.rider_id !== riderId) throw forbidden('This offer is for another rider.');
     if (offer.response !== 'pending') throw conflict('This offer has already been answered.');
@@ -122,7 +121,7 @@ async function respond(riderId, offerId, action) {
       'UPDATE delivery_offers SET response = ? WHERE id = ? AND response = ?',
       [action === 'accept' ? 'accepted' : 'declined', offerId, 'pending']
     );
-  });
+  }, riderId);
 
   if (action === 'accept') {
     await realtime.notifyOrder(orderId, 'order.rider_assigned', { riderId: String(riderId) });
@@ -152,4 +151,4 @@ async function earnings(riderId) {
   };
 }
 
-module.exports = { riderFor, status, setOnline, ping, currentOffer, respond, earnings };
+module.exports = { status, setOnline, ping, currentOffer, respond, earnings };
