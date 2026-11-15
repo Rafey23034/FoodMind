@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { userKey } from './userKey';
 
-// Saved addresses are separated by account email. Nothing is sent to a server.
+// Saved addresses are separated by account email. API sessions sync them at checkout and in the address book.
 const EMPTY_ADDRESSES = [];
 const addressesSlice = createSlice({
   name: 'addresses',
@@ -10,6 +10,14 @@ const addressesSlice = createSlice({
     loadAddresses: (state, action) => {
       state.byUser = action.payload.byUser || {};
       state.selectedByUser = action.payload.selectedByUser || {};
+    },
+    setUserAddresses: (state, action) => {
+      const { userKey, addresses, selectedId } = action.payload;
+      state.byUser[userKey] = Array.isArray(addresses) ? addresses : [];
+      const selected = addresses?.some(address => address.id === selectedId)
+        ? selectedId
+        : addresses?.find(address => address.isDefault)?.id || addresses?.[0]?.id || null;
+      state.selectedByUser[userKey] = selected;
     },
     saveAddress: (state, action) => {
       const { userKey, address } = action.payload;
@@ -35,7 +43,7 @@ const addressesSlice = createSlice({
     },
   },
 });
-export const { loadAddresses, saveAddress, deleteAddress, selectAddress } = addressesSlice.actions;
+export const { loadAddresses, setUserAddresses, saveAddress, deleteAddress, selectAddress } = addressesSlice.actions;
 export default addressesSlice.reducer;
 export const addressUserKey = userKey;
 export const selectUserAddresses = state => state.addresses.byUser[addressUserKey(state.auth.user)] || EMPTY_ADDRESSES;

@@ -31,8 +31,10 @@ export default function PartnerOrderStatusScreen({ navigation, route, hasPartner
         <Notice success={stage === 'ready' || stage === 'delivered'} title={`Current stage: ${PARTNER_STAGE_LABELS[stage]}`} />
       </View>
       <AppText variant="small" color={COLORS.textSecondary}>QUICK ACTIONS</AppText>
-      {stage === 'ready' ? <AppButton title="Mark Picked Up" onPress={() => dispatch(transitionPartnerOrder({ id: order.id, stage: 'picked-up' }))} />
-        : stage === 'preparing' ? <AppButton title="Mark Ready for Pickup" onPress={() => dispatch(transitionPartnerOrder({ id: order.id, stage: 'ready' }))} />
+      {stage === 'ready' ? (order.source === 'api'
+        ? <Notice title="Waiting for rider pickup">The assigned rider marks this order picked up in the rider app.</Notice>
+        : <AppButton title="Mark Picked Up" onPress={() => dispatch(transitionPartnerOrder({ id: order.id, stage: 'picked-up' }))} />)
+        : stage === 'preparing' ? <AppButton title="Mark Ready for Pickup" onPress={() => Promise.resolve(dispatch(transitionPartnerOrder({ id: order.id, stage: 'ready' })))} />
           : stage === 'new' ? <AppButton title="Review New Order" onPress={() => navigation.replace(routes.PARTNER_NEW_ORDER, { orderId: order.id })} /> : null}
       <View style={ui.row}><AppButton title="Delay 5 min" variant="outline" style={ui.flex} disabled={!['preparing', 'ready'].includes(stage)} onPress={() => dispatch(delayPartnerPickup(order.id))} />
         <AppButton title="Contact Rider" variant="secondary" style={ui.flex} disabled={!order.rider || ['rejected', 'delivered'].includes(stage)} onPress={() => setContact(!contact)} /></View>

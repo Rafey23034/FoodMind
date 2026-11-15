@@ -19,9 +19,8 @@ export default function PartnerNewOrderScreen({ navigation, route, hasPartnerTab
   const [rejecting, setRejecting] = useState(Boolean(route.params?.confirmReject));
   const canAccept = partnerStage(order) === 'new';
   function accept() {
-    if (dispatch(transitionPartnerOrder({ id: order.id, stage: 'preparing', prepMinutes: minutes }))) {
-      openPartnerPreparation(navigation, order.id);
-    }
+    Promise.resolve(dispatch(transitionPartnerOrder({ id: order.id, stage: 'preparing', prepMinutes: minutes })))
+      .then(ok => { if (ok) openPartnerPreparation(navigation, order.id); });
   }
   return <PartnerLayout navigation={navigation} title={order ? `Order #${orderNumber(order)}` : 'New Order'} hasTabs={hasPartnerTabs}
     footer={order && canAccept ? <View style={ui.row}><AppButton title="Reject" variant="outline" style={ui.flex} onPress={() => setRejecting(!rejecting)} /><AppButton title="Accept Order" icon="check" style={styles.accept} onPress={accept} /></View> : null}>
@@ -29,7 +28,8 @@ export default function PartnerNewOrderScreen({ navigation, route, hasPartnerTab
       {canAccept && rejecting ? <View style={[ui.card, styles.reject]}><AppText style={ui.bold}>Reject this order?</AppText>
         <AppText variant="small" color={COLORS.textSecondary}>The customer is told it could not be accepted, and it leaves the active queue.</AppText>
         <AppButton title="Confirm rejection" variant="danger" onPress={() => {
-          if (dispatch(transitionPartnerOrder({ id: order.id, stage: 'rejected' }))) navigation.replace(routes.PARTNER_ORDER_STATUS, { orderId: order.id });
+          Promise.resolve(dispatch(transitionPartnerOrder({ id: order.id, stage: 'rejected' })))
+            .then(ok => { if (ok) navigation.replace(routes.PARTNER_ORDER_STATUS, { orderId: order.id }); });
         }} /><AppButton title="Keep order" variant="text" onPress={() => setRejecting(false)} /></View> : null}
       <OrderStageBadge order={order} /><PartnerOrderSummary order={order} />
       {canAccept ? <>

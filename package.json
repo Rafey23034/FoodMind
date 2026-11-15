@@ -14,6 +14,8 @@
     "check": "npm run check --workspace @foodmind/mobile",
     "api": "npm run start --workspace @foodmind/api",
     "ai:server": "npm run start --workspace @foodmind/api",
-    "test:api": "npm run test --workspace @foodmind/api"
+    "test:api": "npm run test --workspace @foodmind/api",
+    "api:smoke": "npm run smoke --workspace @foodmind/api",
+    "api:test-db": "powershell -ExecutionPolicy Bypass -File database/reset_test_db.ps1"
   }
 }

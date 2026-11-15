@@ -11,9 +11,13 @@ const authSlice = createSlice({
     updateUser: (state, action) => {
       if (state.user) state.user = { ...state.user, ...action.payload, email: state.user.email, role: state.user.role };
     },
+    // Refreshed tokens are saved with the session without touching profile details.
+    updateSessionTokens: (state, action) => {
+      if (state.user) state.user = { ...state.user, ...action.payload };
+    },
   },
 });
 
-export const { login, logout, updateUser } = authSlice.actions;
+export const { login, logout, updateUser, updateSessionTokens } = authSlice.actions;
 export const selectUser = state => state.auth.user;
 export default authSlice.reducer;

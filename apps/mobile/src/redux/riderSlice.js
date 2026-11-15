@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { riderRequestById } from '../data/riderRequests';
 import { userKey } from './userKey';
 
-const EMPTY = Object.freeze({ profile: {}, documents: {}, application: { status: 'Draft' }, online: false, bids: [], activeDelivery: null, deliveries: [], exampleMetrics: null });
+const EMPTY = Object.freeze({ profile: {}, documents: {}, application: { status: 'Draft' }, online: false, bids: [], apiOffer: null, activeDelivery: null, deliveries: [], exampleMetrics: null });
 const keyFor = userKey;
 export const RIDER_DOCUMENTS = ['nationalId', 'drivingLicense', 'vehicleRegistration', 'profilePhoto'];
 // Shared by the reducer and the screens so the UI can explain exactly what is missing.
@@ -15,7 +15,7 @@ export function riderApplicationProblem(account) {
 }
 const accountFor = (state, userKey) => {
   const key = keyFor(userKey);
-  if (!state.byUser[key]) state.byUser[key] = { ...EMPTY, profile: {}, documents: {}, application: { status: 'Draft' }, bids: [], deliveries: [] };
+  if (!state.byUser[key]) state.byUser[key] = { ...EMPTY, profile: {}, documents: {}, application: { status: 'Draft' }, bids: [], apiOffer: null, deliveries: [] };
   return state.byUser[key];
 };
 const initialState = { byUser: {} };
@@ -31,6 +31,7 @@ const riderSlice = createSlice({
           profile: saved.profile || {}, documents: saved.documents || {},
           application: saved.application || { status: 'Draft' },
           bids: Array.isArray(saved.bids) ? saved.bids : [],
+          apiOffer: saved.apiOffer || null,
           deliveries: Array.isArray(saved.deliveries) ? saved.deliveries : [],
         };
       }
@@ -55,6 +56,14 @@ const riderSlice = createSlice({
       if (account.application.status === 'Under review') account.application = { ...account.application, status: 'Approved', demoApproval: true, approvedAt: at || new Date().toISOString() };
     },
     setRiderOnline(state, { payload: { userKey, online } }) { accountFor(state, userKey).online = Boolean(online); },
+    setRiderApiOffer(state, { payload: { userKey, offer } }) { accountFor(state, userKey).apiOffer = offer || null; },
+    setRiderActiveDelivery(state, { payload: { userKey, delivery } }) { accountFor(state, userKey).activeDelivery = delivery || null; },
+    completeRiderDelivery(state, { payload: { userKey, at } }) {
+      const account = accountFor(state, userKey);
+      if (!account.activeDelivery) return;
+      account.deliveries.unshift({ ...account.activeDelivery, status: 'Delivered', completedAt: at || new Date().toISOString(), rating: null });
+      account.activeDelivery = null;
+    },
     submitRiderBid(state, { payload: bid }) {
       const account = accountFor(state, bid.userKey);
       if (account.activeDelivery || !bid.requestId || !Number.isFinite(Number(bid.amount)) || Number(bid.amount) <= 0) return;
@@ -109,9 +118,9 @@ const riderSlice = createSlice({
 
 export const {
   loadRiderData, initializeRiderAccount, saveRiderProfile, saveRiderDocument,
-  submitRiderApplication, approveRiderDemo, setRiderOnline, submitRiderBid,
-  selectRiderDemoBid, acceptRiderBid, declineRiderBid, withdrawRiderBid, saveRiderProof,
-  advanceRiderDelivery, rateRiderDelivery,
+  submitRiderApplication, approveRiderDemo, setRiderOnline, setRiderApiOffer, setRiderActiveDelivery,
+  completeRiderDelivery, submitRiderBid, selectRiderDemoBid, acceptRiderBid, declineRiderBid,
+  withdrawRiderBid, saveRiderProof, advanceRiderDelivery, rateRiderDelivery,
 } = riderSlice.actions;
 export const riderKey = keyFor;
 export const selectRiderAccount = state => state.rider?.byUser?.[keyFor(state.auth?.user)] || EMPTY;

@@ -14,10 +14,13 @@ import { dishes, makeCartItem } from '../src/data/catalog';
 import { riderOffers } from '../src/data/riderOffers';
 import { routes } from '../src/navigation/routes';
 import AIScreen from '../src/screens/customer/AIScreen';
+import * as apiConfig from '../src/services/api';
 import CheckoutScreen from '../src/screens/customer/CheckoutScreen';
 import RateOrderScreen from '../src/screens/customer/RateOrderScreen';
 import RiderOffersScreen from '../src/screens/customer/RiderOffersScreen';
 import CommunityDeliveryScreen from '../src/screens/customer/CommunityDeliveryScreen';
+
+afterEach(() => jest.restoreAllMocks());
 
 const order = { id: 'FM123', customerEmail: 'demo@food.com', restaurant: 'Urban Bites', status: 'Delivered', items: [makeCartItem(dishes[0])], total: 1250, payment: 'cash', address: 'Demo Street, Lahore', createdAt: '2026-10-25T00:00:00.000Z' };
 const delivery = { id: 'CD123', shop: 'Demo Shop', location: 'Pickup Street', address: 'Demo Street', items: [{ id: 'one', name: 'Biryani', price: 550, quantity: 2 }], status: 'Heading to shop', rider: riderOffers[0] };
@@ -73,6 +76,7 @@ async function say(tree, text) {
 const aiReply = body => ({ ok: true, json: async () => body });
 
 test('the AI chat stays on one screen and shows results in the conversation', async () => {
+  jest.replaceProperty(apiConfig, 'API_ENABLED', true);
   global.fetch.mockResolvedValueOnce(aiReply({ reply: 'Pasta under Rs. 1,100 gives you a few choices.', title: 'Pasta under Rs. 1,100',
     recommendations: [{ dishId: 'creamy-pasta', reason: 'Creamy' }, { dishId: 'white-sauce-pasta', reason: 'Cheaper' }, { dishId: 'not-on-menu', reason: 'x' }],
     suggestions: ['Something spicier'] }));
@@ -130,6 +134,7 @@ test('without the AI service the chat uses the menu and remembers what was asked
 });
 
 test('Ask AI from search sends its request into the chat once', async () => {
+  jest.replaceProperty(apiConfig, 'API_ENABLED', true);
   const { tree } = await mount(AIScreen, setupStore(), { prompt: 'Vegan sushi under Rs. 300' });
   expect(global.fetch).toHaveBeenCalledTimes(1);
   expect(allText(tree)).toContain('Vegan sushi under Rs. 300');

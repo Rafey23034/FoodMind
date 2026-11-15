@@ -16,8 +16,10 @@ export default function LoginScreen({ navigation, route, onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  function handleLogin() {
+  async function handleLogin() {
+    if (busy) return;
     const nextErrors = {};
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) nextErrors.email = 'Enter a valid email address.';
     if (password.length < 6) nextErrors.password = 'Password must contain at least 6 characters.';
@@ -26,8 +28,13 @@ export default function LoginScreen({ navigation, route, onLogin }) {
     setMessage('');
     if (Object.keys(nextErrors).length > 0) return;
 
-    const success = onLogin(email.trim().toLowerCase(), password);
-    if (!success) setMessage('Email or password is incorrect.');
+    setBusy(true);
+    try {
+      const success = await onLogin(email.trim().toLowerCase(), password);
+      if (!success) setMessage('Email or password is incorrect.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -92,7 +99,7 @@ export default function LoginScreen({ navigation, route, onLogin }) {
             </AppText>
           ) : null}
 
-          <AppButton title="Sign In  →" onPress={handleLogin}
+          <AppButton title={busy ? 'Signing in…' : 'Sign In  →'} onPress={handleLogin} disabled={busy}
             style={styles.signInButton} testID="login-button" />
         </View>
 

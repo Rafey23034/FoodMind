@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import PartnerLayout from '../../components/partner/PartnerLayout';
@@ -9,6 +9,7 @@ import AppButton from '../../components/AppButton';
 import FoodThumbnail from '../../components/FoodThumbnail';
 import { Chip, EmptyState, ui } from '../../components/customer/ui';
 import { loadPartnerExamples, selectPartnerOrders } from '../../redux/partnerSlice';
+import { syncPartnerData } from '../../redux/apiThunks';
 import { orderNumber, partnerStage, orderDestination } from '../../data/partnerOrders';
 import { formatPrice } from '../../data/catalog';
 import { COLORS } from '../../theme/colors';
@@ -17,7 +18,14 @@ export default function PartnerOrdersScreen({ navigation, hasPartnerTabs }) {
   const dispatch = useDispatch();
   const { demoOrders, userKey } = usePartner();
   const orders = useSelector(selectPartnerOrders);
+  const apiSession = useSelector(state => Boolean(state.auth.user?.accessToken || state.auth.user?.refreshToken));
   const [filter, setFilter] = useState('All');
+  useEffect(() => {
+    if (!apiSession) return undefined;
+    dispatch(syncPartnerData());
+    const timer = setInterval(() => dispatch(syncPartnerData()), 10000);
+    return () => clearInterval(timer);
+  }, [apiSession, dispatch]);
   const stages = { New: ['new'], Preparing: ['preparing'], Ready: ['ready'], Completed: ['picked-up', 'delivered', 'rejected'] };
   const visible = orders.filter(order => filter === 'All' || stages[filter].includes(partnerStage(order)));
   return <PartnerLayout navigation={navigation} title="Orders" onBack={hasPartnerTabs ? false : undefined} subtitle="Manage incoming and active orders" hasTabs={hasPartnerTabs}>

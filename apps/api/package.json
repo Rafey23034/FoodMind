@@ -6,9 +6,19 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env index.js",
     "dev": "node --env-file-if-exists=.env --watch index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "smoke": "node --env-file-if-exists=.env test/smoke.js"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.24.6",
+    "ws": "^7.5.13",
+    "zod": "^3.25.76"
   }
 }

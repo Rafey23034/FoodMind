@@ -7,7 +7,7 @@ import usePartnerReviews from '../../components/partner/usePartnerReviews';
 import AppText from '../../components/AppText';
 import AppButton from '../../components/AppButton';
 import { ui } from '../../components/customer/ui';
-import { logout } from '../../redux/authSlice';
+import { signOut } from '../../redux/session';
 import { ratingSummary } from '../../data/partnerReviews';
 import { restaurant } from '../../data/catalog';
 import { routes } from '../../navigation/routes';
@@ -29,7 +29,7 @@ export default function PartnerStoreScreen({ navigation, hasPartnerTabs }) {
     ['document', 'DOCUMENTS & PHOTOS', Object.keys(documents).length === 3 ? 'All required files selected' : 'Select your documents', routes.PARTNER_DOCUMENTS],
   ];
   return <PartnerLayout navigation={navigation} title="Store" subtitle="PARTNER PORTAL" hasTabs={hasPartnerTabs}
-    onBack={false} footer={<><AppButton title="Edit restaurant profile" icon="edit" onPress={() => navigation.navigate(routes.PARTNER_EDIT_STORE)} /><AppButton title="Log Out" icon="logout" variant="outline" onPress={() => confirmLogout(() => dispatch(logout()))} /></>}>
+    onBack={false} footer={<><AppButton title="Edit restaurant profile" icon="edit" onPress={() => navigation.navigate(routes.PARTNER_EDIT_STORE)} /><AppButton title="Log Out" icon="logout" variant="outline" onPress={() => confirmLogout(() => dispatch(signOut()))} /></>}>
     <View style={styles.brandCard}><View style={styles.cover}>{profile.coverUri ? <Image source={{ uri: profile.coverUri }} style={styles.coverImage} /> : <Icon name="utensils" size={28} />}</View>
       <View style={styles.brandBody}><View style={styles.logo}>{profile.logoUri ? <Image source={{ uri: profile.logoUri }} style={styles.logoImage} /> : <AppText color={COLORS.primary} style={ui.bold}>{logoInitials}</AppText>}</View>
         <View style={ui.flex}><AppText variant="subheading">{profile.name || 'Your restaurant'}</AppText><AppText variant="caption" color={COLORS.textSecondary}>{profile.cuisines.join(' · ')}</AppText></View>
